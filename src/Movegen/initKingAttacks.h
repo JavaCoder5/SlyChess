@@ -1,3 +1,4 @@
 #pragma once
+#include <src/Constants/Constants.h>
 
-void initKingAttacks(unsigned long long (*kingAttacks)[64]);
+void initKingAttacks(U64 (*kingAttacks)[64]);

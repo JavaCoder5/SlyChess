@@ -7,31 +7,31 @@
 #include <src/Movegen/initKingAttacks.h>
 #include <src/Movegen/initPawnAttacks.h>
 
-unsigned long long wPawnBB = WPAWN_START;
-unsigned long long wKnightBB = WKNIGHT_START;
-unsigned long long wBishopBB = WBISHOP_START;
-unsigned long long wRookBB = WROOK_START;
-unsigned long long wQueenBB = WQUEEN_START;
-unsigned long long wKingBB = WKING_START;
+U64 wPawnBB = WPAWN_START;
+U64 wKnightBB = WKNIGHT_START;
+U64 wBishopBB = WBISHOP_START;
+U64 wRookBB = WROOK_START;
+U64 wQueenBB = WQUEEN_START;
+U64 wKingBB = WKING_START;
 
-unsigned long long bPawnBB = BPAWN_START;
-unsigned long long bKnightBB = BKNIGHT_START;
-unsigned long long bBishopBB = BBISHOP_START;
-unsigned long long bRookBB = BROOK_START;
-unsigned long long bQueenBB = BQUEEN_START;
-unsigned long long bKingBB = BKING_START;
+U64 bPawnBB = BPAWN_START;
+U64 bKnightBB = BKNIGHT_START;
+U64 bBishopBB = BBISHOP_START;
+U64 bRookBB = BROOK_START;
+U64 bQueenBB = BQUEEN_START;
+U64 bKingBB = BKING_START;
 
-unsigned long long allWhiteBB = wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB;
-unsigned long long allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB;
-unsigned long long allPiecesBB = allWhiteBB | allBlackBB;
+U64 allWhiteBB = wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB;
+U64 allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB;
+U64 allPiecesBB = allWhiteBB | allBlackBB;
 
-unsigned long long wPawnAttacks[64];
-unsigned long long bPawnAttacks[64];
-unsigned long long knightAttacks[64];
-unsigned long long kingAttacks[64];
+U64 wPawnAttacks[64];
+U64 bPawnAttacks[64];
+U64 knightAttacks[64];
+U64 kingAttacks[64];
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
-static void printBitboard(unsigned long long bb)
+static void printBitboard(U64 bb)
 {
     for (int r = 7; r >= 0; --r) {
         for (int f = 0; f < 8; ++f) {

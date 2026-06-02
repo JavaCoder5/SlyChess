@@ -1,5 +1,6 @@
 #pragma once
+#include <src/Constants/Constants.h>
 
-void initWPawnAttacks(unsigned long long (*wPawnAttacks)[64]);
+void initWPawnAttacks(U64 (*wPawnAttacks)[64]);
 
-void initBPawnAttacks(unsigned long long (*bPawnAttacks)[64]);
+void initBPawnAttacks(U64 (*bPawnAttacks)[64]);

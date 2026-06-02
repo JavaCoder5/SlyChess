@@ -1,12 +1,13 @@
 #include "initKingAttacks.h"
+#include <src/Constants/Constants.h>
 
-void initKingAttacks(unsigned long long (*kingAttacks)[64])
+void initKingAttacks(U64 (*kingAttacks)[64])
 {
 	const int rankOffsets[8] = { 1, 1, 1, 0, -1, -1, -1, 0 };
 	const int fileOffsets[8] = { 1, 0, -1, -1, -1, 0, 1, 1 };
 
 	for (int sq = 0; sq < 64; ++sq) {
-		unsigned long long bb = 0ULL;
+		U64 bb = 0ULL;
 		int rank = sq / 8;
 		int file = sq % 8;
 

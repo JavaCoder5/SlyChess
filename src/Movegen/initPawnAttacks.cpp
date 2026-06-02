@@ -1,12 +1,13 @@
 #include "initPawnAttacks.h"
+#include <src/Constants/Constants.h>
 
-void initWPawnAttacks(unsigned long long (*wPawnAttacks)[64])
+void initWPawnAttacks(U64 (*wPawnAttacks)[64])
 {
 	const int rankOffsets[1] = { 1 };
 	const int fileOffsets[1] = { 0 };
 
 	for (int sq = 8; sq < 64; ++sq) {
-		unsigned long long bb = 0ULL;
+		U64 bb = 0ULL;
 		int rank = sq / 8;
 		int file = sq % 8;
 
@@ -28,13 +29,13 @@ void initWPawnAttacks(unsigned long long (*wPawnAttacks)[64])
 	return;
 }
 
-void initBPawnAttacks(unsigned long long (*bPawnAttacks)[64])
+void initBPawnAttacks(U64 (*bPawnAttacks)[64])
 {
 	const int rankOffsets[1] = {-1 };
 	const int fileOffsets[1] = { 0 };
 
 	for (int sq = 8; sq < 64; ++sq) {
-		unsigned long long bb = 0ULL;
+		U64 bb = 0ULL;
 		int rank = sq / 8;
 		int file = sq % 8;
 
