@@ -4,6 +4,7 @@
 #include <bitset>
 #include <src/Constants/Constants.h>
 #include <src/Movegen/initKnightAttacks.h>
+#include <src/Movegen/initKingAttacks.h>
 
 unsigned long long wPawnBB = WPAWN_START;
 unsigned long long wKnightBB = WKNIGHT_START;
@@ -24,6 +25,7 @@ unsigned long long allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQue
 unsigned long long allPiecesBB = allWhiteBB | allBlackBB;
 
 unsigned long long knightAttacks[64];
+unsigned long long kingAttacks[64];
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(unsigned long long bb)
@@ -41,6 +43,7 @@ static void printBitboard(unsigned long long bb)
 void initBitboardAttacks()
 {
     initKnightAttacks(&knightAttacks);
+    initKingAttacks(&kingAttacks);
     return;
 }
 
@@ -177,6 +180,24 @@ int main() {
 
             std::cout << "Knight attacks from square " << square << ":\n";
             printBitboard(knightAttacks[square]);
+            std::cout << std::flush;
+        }
+        else if (line.rfind("kmoves", 0) == 0) {
+            std::stringstream ss(line);
+            std::string token;
+            int square = 0;
+            ss >> token; // "kmoves"
+
+            ss >> square;
+            // Test king move generation
+
+            if (square < 0 || square > 63) {
+                std::cout << "Invalid square index. Must be between 0 and 63.\n" << std::flush;
+                continue;
+            }
+
+            std::cout << "King attacks from square " << square << ":\n";
+            printBitboard(kingAttacks[square]);
             std::cout << std::flush;
         }
         else if (line.rfind("stop", 0) == 0) {
