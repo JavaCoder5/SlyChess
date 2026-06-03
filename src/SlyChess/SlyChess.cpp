@@ -3,9 +3,12 @@
 #include <sstream>
 #include <bitset>
 #include <src/Constants/Constants.h>
+#include <src/Constants/Macros.h>
 #include <src/Movegen/initKnightAttacks.h>
 #include <src/Movegen/initKingAttacks.h>
 #include <src/Movegen/initPawnAttacks.h>
+#include <src/Movegen/MagicBoards/lookupAttacks.h>
+#include <src/Movegen/MagicBoards/initSliders.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -59,6 +62,7 @@ int main() {
     std::string line;
 
     initBitboardAttacks();
+    initSliders();
 
     while (std::getline(std::cin, line)) {
 
@@ -71,7 +75,7 @@ int main() {
             std::cout << "readyok\n" << std::flush;
         }
         else if (line == "ucinewgame") {
-
+            
         }
         else if (line.rfind("position", 0) == 0) {
             // Always stop any running search before changing the board
@@ -233,6 +237,51 @@ int main() {
             }
             std::cout << "Black pawn attacks from square " << square << ":\n";
             printBitboard(bPawnAttacks[square]);
+            std::cout << std::flush;
+        }
+        else if (line.rfind("rmoves", 0) == 0) {
+            std::stringstream ss(line);
+            std::string token;
+            int square = 0;
+            ss >> token; // "rmoves"
+            ss >> square;
+            // Test rook move generation
+            if (square < 0 || square > 63) {
+                std::cout << "Invalid square index. Must be between 0 and 63.\n" << std::flush;
+                continue;
+            }
+            std::cout << "Rook attacks from square " << square << ":\n";
+            printBitboard(lookupRookAttacks(square, allPiecesBB) & ~allWhiteBB);
+            std::cout << std::flush;
+        }
+        else if (line.rfind("bmoves", 0) == 0) {
+            std::stringstream ss(line);
+            std::string token;
+            int square = 0;
+            ss >> token; // "bmoves"
+            ss >> square;
+            // Test bishop move generation
+            if (square < 0 || square > 63) {
+                std::cout << "Invalid square index. Must be between 0 and 63.\n" << std::flush;
+                continue;
+            }
+            std::cout << "Bishop attacks from square " << square << ":\n";
+            printBitboard(lookupBishopAttacks(square, allPiecesBB) & ~allWhiteBB);
+            std::cout << std::flush;
+        }
+        else if (line.rfind("qmoves", 0) == 0) {
+            std::stringstream ss(line);
+            std::string token;
+            int square = 0;
+            ss >> token; // "qmoves"
+            ss >> square;
+            // Test queen move generation
+            if (square < 0 || square > 63) {
+                std::cout << "Invalid square index. Must be between 0 and 63.\n" << std::flush;
+                continue;
+            }
+            std::cout << "Queen attacks from square " << square << ":\n";
+            printBitboard(lookupQueenAttacks(square, allPiecesBB) & ~allWhiteBB);
             std::cout << std::flush;
         }
         else if (line.rfind("stop", 0) == 0) {

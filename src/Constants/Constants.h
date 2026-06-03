@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 
 using U64 = unsigned long long;
 
@@ -18,3 +19,34 @@ const U64 BBISHOP_START = 0x2400000000000000ULL;
 const U64 BROOK_START = 0x8100000000000000ULL;
 const U64 BQUEEN_START = 0x1000000000000000ULL;
 const U64 BKING_START = 0x0800000000000000ULL;
+
+
+// Shifting counts per square (0 to 63)
+inline constexpr std::array<int, 64> RookBits = {
+    12, 11, 11, 11, 11, 11, 11, 12,
+    11, 10, 10, 10, 10, 10, 10, 11,
+    11, 10, 10, 10, 10, 10, 10, 11,
+    11, 10, 10, 10, 10, 10, 10, 11,
+    11, 10, 10, 10, 10, 10, 10, 11,
+    11, 10, 10, 10, 10, 10, 10, 11,
+    11, 10, 10, 10, 10, 10, 10, 11,
+    12, 11, 11, 11, 11, 11, 11, 12
+};
+
+inline constexpr std::array<int, 64> BishopBits = {
+    6, 5, 5, 5, 5, 5, 5, 6,
+    5, 5, 5, 5, 5, 5, 5, 5,
+    5, 5, 7, 7, 7, 7, 5, 5,
+    5, 5, 7, 9, 9, 7, 5, 5,
+    5, 5, 7, 9, 9, 7, 5, 5,
+    5, 5, 7, 7, 7, 7, 5, 5,
+    5, 5, 5, 5, 5, 5, 5, 5,
+    6, 5, 5, 5, 5, 5, 5, 6
+};
+
+struct Magic {
+    const U64* ptr; // Points to the start of this square's block in the flat array
+    U64 mask;       // Inner ray blocker mask
+    U64 magic;      // Hardcoded magic multiplier
+    int shift;      // 64 - Bits
+};

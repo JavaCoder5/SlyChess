@@ -14,7 +14,7 @@ endif()
 project ("SlyChess")
 
 # Add source to this project's executable.
-add_executable (SlyChess "src/SlyChess/SlyChess.cpp"  "src/Constants/Constants.h" "src/Movegen/initKnightAttacks.h" "src/Movegen/initKnightAttacks.cpp" "src/Movegen/initKingAttacks.h" "src/Movegen/initKingAttacks.cpp" "src/Movegen/initPawnAttacks.h" "src/Movegen/initPawnAttacks.cpp")
+add_executable (SlyChess "src/SlyChess/SlyChess.cpp"  "src/Constants/Constants.h" "src/Movegen/initKnightAttacks.h" "src/Movegen/initKnightAttacks.cpp" "src/Movegen/initKingAttacks.h" "src/Movegen/initKingAttacks.cpp" "src/Movegen/initPawnAttacks.h" "src/Movegen/initPawnAttacks.cpp" "src/Constants/Macros.h" "src/Movegen/MagicBoards/lookupAttacks.h" "src/Movegen/MagicBoards/initSliders.h" "src/Movegen/MagicBoards/initSliders.cpp")
 
 target_include_directories(SlyChess PRIVATE ${PROJECT_SOURCE_DIR})
 
