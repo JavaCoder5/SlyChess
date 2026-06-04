@@ -9,6 +9,7 @@
 #include <src/Movegen/initPawnAttacks.h>
 #include <src/Movegen/MagicBoards/lookupAttacks.h>
 #include <src/Movegen/MagicBoards/initSliders.h>
+#include <src/Movegen/initPawnCaptures.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -30,6 +31,8 @@ U64 allPiecesBB = allWhiteBB | allBlackBB;
 
 U64 wPawnAttacks[64];
 U64 bPawnAttacks[64];
+U64 wPawnCaptures[64];
+U64 bPawnCaptures[64];
 U64 knightAttacks[64];
 U64 kingAttacks[64];
 
@@ -50,6 +53,8 @@ void initBitboardAttacks()
 {
     initWPawnAttacks(&wPawnAttacks);
 	initBPawnAttacks(&bPawnAttacks);
+	initWPawnCaptures(&wPawnCaptures);
+	initBPawnCaptures(&bPawnCaptures);
     initKnightAttacks(&knightAttacks);
     initKingAttacks(&kingAttacks);
     return;
@@ -282,6 +287,36 @@ int main() {
             }
             std::cout << "Queen attacks from square " << square << ":\n";
             printBitboard(lookupQueenAttacks(square, allPiecesBB) & ~allWhiteBB);
+            std::cout << std::flush;
+        }
+        else if (line.rfind("wpcaps", 0) == 0) {
+            std::stringstream ss(line);
+            std::string token;
+            int square = 0;
+            ss >> token; // "wpcaps"
+            ss >> square;
+            // Test white pawn move generation
+            if (square < 0 || square > 63) {
+                std::cout << "Invalid square index. Must be between 0 and 63.\n" << std::flush;
+                continue;
+            }
+            std::cout << "White pawn attacks from square " << square << ":\n";
+            printBitboard(wPawnCaptures[square]);
+            std::cout << std::flush;
+        }
+        else if (line.rfind("bpcaps", 0) == 0) {
+            std::stringstream ss(line);
+            std::string token;
+            int square = 0;
+            ss >> token; // "bpcaps"
+            ss >> square;
+            // Test black pawn move generation
+            if (square < 0 || square > 63) {
+                std::cout << "Invalid square index. Must be between 0 and 63.\n" << std::flush;
+                continue;
+            }
+            std::cout << "Black pawn attacks from square " << square << ":\n";
+            printBitboard(bPawnCaptures[square]);
             std::cout << std::flush;
         }
         else if (line.rfind("stop", 0) == 0) {
