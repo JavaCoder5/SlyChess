@@ -2,6 +2,7 @@
 #include <array>
 
 using U64 = unsigned long long;
+using Move = unsigned short;
 
 static const int INF = 1000000000;
 static const int MINF = -1000000000;
@@ -50,3 +51,15 @@ struct Magic {
     U64 magic;      // Hardcoded magic multiplier
     int shift;      // 64 - Bits
 };
+
+// Move structure: 16 bits total (short)
+// Bits 0-5: from square (0-63)
+// Bits 6-11: to square (0-63)
+// Bits 12-15: special flags (promotion, castling, en passant, etc.)
+#define FLAG_PROMOTION_Q 0x1
+#define FLAG_PROMOTION_R 0x2
+#define FLAG_PROMOTION_B 0x3
+#define FLAG_PROMOTION_N 0x4
+#define FLAG_CASTLE_K 0x8
+#define FLAG_CASTLE_Q 0x9
+#define FLAG_EN_PASSANT 0xA
