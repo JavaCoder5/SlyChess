@@ -49,6 +49,34 @@ static void printBitboard(U64 bb)
     }
 }
 
+// Print the current position using piece letters (white: R N B K Q P, black: r n b k q p)
+static void printPosition()
+{
+    for (int r = 7; r >= 0; --r) {
+        for (int f = 0; f < 8; ++f) {
+            int sq = r * 8 + f;
+            U64 bit = 1ULL << sq;
+            char c = '.';
+
+            if (wRookBB & bit) c = 'R';
+            else if (wKnightBB & bit) c = 'N';
+            else if (wBishopBB & bit) c = 'B';
+            else if (wKingBB & bit) c = 'K';
+            else if (wQueenBB & bit) c = 'Q';
+            else if (wPawnBB & bit) c = 'P';
+            else if (bRookBB & bit) c = 'r';
+            else if (bKnightBB & bit) c = 'n';
+            else if (bBishopBB & bit) c = 'b';
+            else if (bKingBB & bit) c = 'k';
+            else if (bQueenBB & bit) c = 'q';
+            else if (bPawnBB & bit) c = 'p';
+
+            std::cout << c << " ";
+        }
+        std::cout << "\n";
+    }
+}
+
 void initBitboardAttacks()
 {
     initWPawnAttacks(&wPawnAttacks);
@@ -58,6 +86,88 @@ void initBitboardAttacks()
     initKnightAttacks(&knightAttacks);
     initKingAttacks(&kingAttacks);
     return;
+}
+
+// Set the global piece bitboards from a FEN string (only handles piece placement field
+// for now). If fen is invalid the function returns false and does not modify state.
+bool setPositionFromFEN(const std::string &fen)
+{
+    // Make a copy and extract the piece placement field (up to first space)
+    size_t pos = fen.find(' ');
+    std::string placement = (pos == std::string::npos) ? fen : fen.substr(0, pos);
+
+    // Prepare temporary bitboards
+    U64 twPawn = 0ULL, twKnight = 0ULL, twBishop = 0ULL, twRook = 0ULL, twQueen = 0ULL, twKing = 0ULL;
+    U64 tbPawn = 0ULL, tbKnight = 0ULL, tbBishop = 0ULL, tbRook = 0ULL, tbQueen = 0ULL, tbKing = 0ULL;
+
+    int rank = 7;
+    int file = 0;
+
+    for (size_t i = 0; i < placement.size(); ++i) {
+        char c = placement[i];
+        if (c == '/') {
+            if (file != 8) return false; // invalid
+            --rank;
+            file = 0;
+            continue;
+        }
+        if (c >= '1' && c <= '8') {
+            file += (c - '0');
+            if (file > 8) return false;
+            continue;
+        }
+
+        if (file >= 8 || rank < 0) return false;
+
+        int sq = rank * 8 + file;
+        U64 bit = 1ULL << sq;
+
+        switch (c) {
+            case 'P': twPawn |= bit; break;
+            case 'N': twKnight |= bit; break;
+            case 'B': twBishop |= bit; break;
+            case 'R': twRook |= bit; break;
+            case 'Q': twQueen |= bit; break;
+            case 'K': twKing |= bit; break;
+            case 'p': tbPawn |= bit; break;
+            case 'n': tbKnight |= bit; break;
+            case 'b': tbBishop |= bit; break;
+            case 'r': tbRook |= bit; break;
+            case 'q': tbQueen |= bit; break;
+            case 'k': tbKing |= bit; break;
+            default:
+                return false; // unknown char
+        }
+        ++file;
+    }
+
+    if (rank != 0 || file != 8) {
+        // After parsing the last rank we expect to have filled rank 0 and file==8
+        // but some valid FENs may end exactly at that state; ensure consistency
+        // If not consistent, still accept when rank==0 and file==8
+        if (!(rank == 0 && file == 8)) return false;
+    }
+
+    // Commit to globals
+    wPawnBB = twPawn;
+    wKnightBB = twKnight;
+    wBishopBB = twBishop;
+    wRookBB = twRook;
+    wQueenBB = twQueen;
+    wKingBB = twKing;
+
+    bPawnBB = tbPawn;
+    bKnightBB = tbKnight;
+    bBishopBB = tbBishop;
+    bRookBB = tbRook;
+    bQueenBB = tbQueen;
+    bKingBB = tbKing;
+
+    allWhiteBB = wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB;
+    allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB;
+    allPiecesBB = allWhiteBB | allBlackBB;
+
+    return true;
 }
 
 int main() {
@@ -84,6 +194,29 @@ int main() {
         }
         else if (line.rfind("position", 0) == 0) {
             // Always stop any running search before changing the board
+            std::stringstream ss(line);
+            std::string token;
+            ss >> token; // "position"
+            std::string sub;
+            if (!(ss >> sub)) continue;
+
+            if (sub == "startpos") {
+                // set to standard start position
+                setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+            }
+            else if (sub == "fen") {
+                // remainder of the line after 'fen ' is the FEN string
+                std::string fenRest;
+                std::getline(ss, fenRest);
+                // trim leading spaces
+                size_t p = fenRest.find_first_not_of(' ');
+                if (p != std::string::npos) fenRest = fenRest.substr(p);
+                if (!fenRest.empty()) {
+                    setPositionFromFEN(fenRest);
+                }
+            }
+
+            // ignore optional "moves" and move list for now
 
         }
         else if (line.rfind("go", 0) == 0) {
@@ -176,6 +309,11 @@ int main() {
 
             std::cout << "All Pieces:    \n";
             printBitboard(allPiecesBB);
+            std::cout << std::flush;
+        }
+        else if (line == "p") {
+            // Print board with piece letters
+            printPosition();
             std::cout << std::flush;
         }
         else if (line.rfind("nmoves", 0) == 0) {
