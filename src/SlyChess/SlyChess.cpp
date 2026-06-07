@@ -10,6 +10,7 @@
 #include <src/Movegen/MagicBoards/lookupAttacks.h>
 #include <src/Movegen/MagicBoards/initSliders.h>
 #include <src/Movegen/initPawnCaptures.h>
+#include <src/Movegen/generatePseudoLegalMoves.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -35,6 +36,9 @@ U64 wPawnCaptures[64];
 U64 bPawnCaptures[64];
 U64 knightAttacks[64];
 U64 kingAttacks[64];
+
+bool turn = WHITE; // true for white to move, false for black to move
+int enPassantSquare = -1; // -1 when no en-passant target
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -92,9 +96,17 @@ void initBitboardAttacks()
 // for now). If fen is invalid the function returns false and does not modify state.
 bool setPositionFromFEN(const std::string &fen)
 {
-    // Make a copy and extract the piece placement field (up to first space)
-    size_t pos = fen.find(' ');
-    std::string placement = (pos == std::string::npos) ? fen : fen.substr(0, pos);
+    // Parse FEN fields: placement, side, castling, en-passant, halfmove, fullmove
+    std::stringstream fs(fen);
+    std::string placement;
+    if (!(fs >> placement)) return false;
+    std::string sideField;
+    std::string castlingField;
+    std::string epField;
+    // Read optional fields if present
+    fs >> sideField; // 'w' or 'b'
+    fs >> castlingField; // may be '-'
+    fs >> epField; // en-passant target or '-'
 
     // Prepare temporary bitboards
     U64 twPawn = 0ULL, twKnight = 0ULL, twBishop = 0ULL, twRook = 0ULL, twQueen = 0ULL, twKing = 0ULL;
@@ -167,7 +179,62 @@ bool setPositionFromFEN(const std::string &fen)
     allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB;
     allPiecesBB = allWhiteBB | allBlackBB;
 
+    // Update side-to-move if provided
+    if (!sideField.empty()) {
+        if (sideField[0] == 'w') turn = WHITE;
+        else if (sideField[0] == 'b') turn = BLACK;
+    }
+
+    // Parse en-passant square if provided
+    enPassantSquare = -1;
+    if (!epField.empty() && epField != "-") {
+        if (epField.size() >= 2) {
+            char f = epField[0];
+            char r = epField[1];
+            if (f >= 'a' && f <= 'h' && r >= '1' && r <= '8') {
+                enPassantSquare = (r - '1') * 8 + (f - 'a');
+            }
+        }
+    }
+
     return true;
+}
+
+std::string moveToUCI(Move move)
+{
+	int fromSq = move & 0x3F; // bits 0-5
+	int toSq = (move >> 6) & 0x3F; // bits 6-11
+	int flags = move & 0xF000; // bits 12-15 (if needed for special move handling)
+	char fromFile = 'a' + (fromSq % 8);
+	char fromRank = '1' + (fromSq / 8);
+	char toFile = 'a' + (toSq % 8);
+	char toRank = '1' + (toSq / 8);
+	char promotionSuffix;
+	switch (flags) {
+	case FLAG_PROMOTION_Q: promotionSuffix = 'q'; break;
+	case FLAG_PROMOTION_R: promotionSuffix = 'r'; break;
+	case FLAG_PROMOTION_B: promotionSuffix = 'b'; break;
+	case FLAG_PROMOTION_N: promotionSuffix = 'n'; break;
+	default: promotionSuffix = '\0'; break; // No promotion
+	}
+
+	return std::string() + fromFile + fromRank + toFile + toRank + promotionSuffix;
+}
+
+Move UCIToMove(std::string move)
+{
+	if (move.length() < 4) return 0; // Invalid move string
+	char fromFile = move[0];
+	char fromRank = move[1];
+	char toFile = move[2];
+	char toRank = move[3];
+	if (fromFile < 'a' || fromFile > 'h' || toFile < 'a' || toFile > 'h' ||
+		fromRank < '1' || fromRank > '8' || toRank < '1' || toRank > '8') {
+		return 0; // Invalid characters
+	}
+	int fromSq = (fromRank - '1') * 8 + (fromFile - 'a');
+	int toSq = (toRank - '1') * 8 + (toFile - 'a');
+	return (fromSq) | (toSq << 6);
 }
 
 int main() {
@@ -240,6 +307,19 @@ int main() {
 
         }
         else if (line.rfind("all", 0) == 0) {
+			std::cout << "Generating all pseudo-legal moves for the current position...\n" << std::flush;
+
+            Move moves[256] = { 0 };
+	        generatePseudoLegalMoves(&moves, turn);
+
+            int moveCounter = 0;
+            while (true)
+            {
+                if (moves[moveCounter] == 0) break;
+				std::cout << "Generated move: " << moveToUCI(moves[moveCounter]) << "\n" << std::flush;
+                moveCounter++;
+				if (moveCounter >= 256) break;
+            }
 
         }
         else if (line.rfind("perft", 0) == 0) {
@@ -310,10 +390,13 @@ int main() {
             std::cout << "All Pieces:    \n";
             printBitboard(allPiecesBB);
             std::cout << std::flush;
+
+			std::cout << (turn ? "White to move\n" : "Black to move\n");
         }
         else if (line == "p") {
             // Print board with piece letters
             printPosition();
+            std::cout << (turn ? "White to move\n" : "Black to move\n");
             std::cout << std::flush;
         }
         else if (line.rfind("nmoves", 0) == 0) {
@@ -464,6 +547,10 @@ int main() {
         {
             // Generate and print capture moves only (for testing quiescence move generation)
 
+        }
+        else if (line == "sstp")
+        {
+			turn = !turn; // Toggle turn for testing purposes
         }
         else if (line == "quit") {
                 break;

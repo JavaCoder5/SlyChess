@@ -7,6 +7,9 @@ using Move = unsigned short;
 static const int INF = 1000000000;
 static const int MINF = -1000000000;
 
+#define WHITE true
+#define BLACK false
+
 const U64 WPAWN_START = 0x000000000000FF00ULL;
 const U64 WKNIGHT_START = 0x0000000000000042ULL;
 const U64 WBISHOP_START = 0x0000000000000024ULL;
@@ -56,10 +59,13 @@ struct Magic {
 // Bits 0-5: from square (0-63)
 // Bits 6-11: to square (0-63)
 // Bits 12-15: special flags (promotion, castling, en passant, etc.)
-#define FLAG_PROMOTION_Q 0x1
-#define FLAG_PROMOTION_R 0x2
-#define FLAG_PROMOTION_B 0x3
-#define FLAG_PROMOTION_N 0x4
-#define FLAG_CASTLE_K 0x8
-#define FLAG_CASTLE_Q 0x9
-#define FLAG_EN_PASSANT 0xA
+#define FLAG_PROMOTION_Q (0x1 << 12)
+#define FLAG_PROMOTION_R (0x2 << 12)
+#define FLAG_PROMOTION_B (0x3 << 12)
+#define FLAG_PROMOTION_N (0x4 << 12)
+#define FLAG_CASTLE_K (0x8 << 12)
+#define FLAG_CASTLE_Q (0x9 << 12)
+#define FLAG_EN_PASSANT (0xA << 12)
+
+const inline U64 whitePromotionMask = 0xFF00000000000000ULL;
+const inline U64 blackPromotionMask = 0x00000000000000FFULL;
