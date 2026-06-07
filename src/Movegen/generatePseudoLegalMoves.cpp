@@ -191,5 +191,31 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
 
     }
 
+    // Generate queen moves
+	U64 queenBBCopy = sideToMove ? wQueenBB : bQueenBB;
+
+    while (true)
+    {
+        int sq = count_trailing_zeros(queenBBCopy);
+        if (sq == 64) break; // No more queens
+
+        U64 attacksCopy = lookupQueenAttacks(sq, allPiecesBB) & ~ownPieces;
+
+        while (true)
+        {
+            int tosq = count_trailing_zeros(attacksCopy);
+            if (tosq == 64) break; // No more moves for this queen
+
+            (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
+            movesPointer++;
+
+            U64 bitMask = (1ULL << tosq);
+            attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
+        }
+
+        U64 bitmask = (1ULL << sq);
+        queenBBCopy = queenBBCopy & ~bitmask; // Clear the least significant bit
+
+    }
 
 }
