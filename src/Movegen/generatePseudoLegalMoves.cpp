@@ -34,8 +34,8 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
                 movesPointer++;
 
                 U64 bitMask = (1ULL << promotosq);
-                attacksCopy = attacksCopy & ~bitMask; // Clear the most significant bit
-                promotionMoves = promotionMoves & ~bitMask; // Clear the most significant bit
+                attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
+                promotionMoves = promotionMoves & ~bitMask; // Clear the least significant bit
             }
 
             int tosq = count_trailing_zeros(attacksCopy);
@@ -46,7 +46,7 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
             movesPointer++;
 
             U64 bitMask = (1ULL << tosq);
-            attacksCopy = attacksCopy & ~bitMask; // Clear the most significant bit
+            attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
         }
         // Generate captures for this pawn
 
@@ -71,6 +71,8 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
 
         while (true)
         {
+            // Handle promotion captures
+
             U64 promotionCaptures = capturesCopy & (sideToMove ? whitePromotionMask : blackPromotionMask);
             while (promotionCaptures)
             {
@@ -85,22 +87,19 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
                 movesPointer++;
 
                 U64 bitMask = (1ULL << promotosq);
-                capturesCopy = capturesCopy & ~bitMask; // Clear the most significant bit
-                promotionCaptures = promotionCaptures & ~bitMask; // Clear the most significant bit
+                capturesCopy = capturesCopy & ~bitMask; // Clear the least significant bit
+                promotionCaptures = promotionCaptures & ~bitMask; // Clear the least significant bit
             }
 
             int tosq = count_trailing_zeros(capturesCopy);
             if (tosq == 64) break; // No more captures for this pawn
-
-            // Handle promotion captures
-
 
             (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
 
             movesPointer++;
 
             U64 bitMask = (1ULL << tosq);
-            capturesCopy = capturesCopy & ~bitMask; // Clear the most significant bit
+            capturesCopy = capturesCopy & ~bitMask; // Clear the least significant bit
         }
 
 
@@ -130,11 +129,11 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
 			movesPointer++;
 
 			U64 bitMask = (1ULL << tosq);
-			attacksCopy = attacksCopy & ~bitMask; // Clear the most significant bit
+			attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
         }
 
         U64 bitMask = (1ULL << sq);
-		knightBBCopy = knightBBCopy & ~bitMask; // Clear the most significant bit
+		knightBBCopy = knightBBCopy & ~bitMask; // Clear the least significant bit
 
     }
 
@@ -157,11 +156,11 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
             movesPointer++;
 
 			U64 bitMask = (1ULL << tosq);
-			attacksCopy = attacksCopy & ~bitMask; // Clear the most significant bit
+			attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
         }
 
 		U64 bitmask = (1ULL << sq);
-		bishopBBCopy = bishopBBCopy & ~bitmask; // Clear the most significant bit
+		bishopBBCopy = bishopBBCopy & ~bitmask; // Clear the least significant bit
 
     }
 
@@ -171,24 +170,24 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
     while (true)
     {
         int sq = count_trailing_zeros(rookBBCopy);
-        if (sq == 64) break; // No more bishops
+        if (sq == 64) break; // No more rooks
 
         U64 attacksCopy = lookupRookAttacks(sq, allPiecesBB) & ~ownPieces;
 
         while (true)
         {
             int tosq = count_trailing_zeros(attacksCopy);
-            if (tosq == 64) break; // No more moves for this bishop
+            if (tosq == 64) break; // No more moves for this rook
 
             (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
             movesPointer++;
 
             U64 bitMask = (1ULL << tosq);
-            attacksCopy = attacksCopy & ~bitMask; // Clear the most significant bit
+            attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
         }
 
         U64 bitmask = (1ULL << sq);
-        rookBBCopy = rookBBCopy & ~bitmask; // Clear the most significant bit
+        rookBBCopy = rookBBCopy & ~bitmask; // Clear the least significant bit
 
     }
 
