@@ -40,6 +40,12 @@ U64 kingAttacks[64];
 bool turn = WHITE; // true for white to move, false for black to move
 int enPassantSquare = -1; // -1 when no en-passant target
 
+bool wKingCastleKRights = true;
+bool wKingCastleQRights = true;
+
+bool bKingCastleKRights = true;
+bool bKingCastleQRights = true;
+
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
 {

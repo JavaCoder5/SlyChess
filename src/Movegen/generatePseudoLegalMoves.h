@@ -31,4 +31,10 @@ extern U64 kingAttacks[64];
 extern bool turn;
 extern int enPassantSquare;
 
+extern bool wKingCastleKRights;
+extern bool wKingCastleQRights;
+
+extern bool bKingCastleKRights;
+extern bool bKingCastleQRights;
+
 void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove);

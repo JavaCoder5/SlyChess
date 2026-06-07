@@ -218,4 +218,45 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
 
     }
 
+    // Generate king moves
+	U64 kingBBCopy = sideToMove ? wKingBB : bKingBB;
+
+    // Note: No loop is required since there can only ever be one king per side
+
+	int sq = count_trailing_zeros(kingBBCopy);
+
+	U64 kAttacksCopy = kingAttacks[sq] & ~ownPieces;
+
+    while (true)
+    {
+		int tosq = count_trailing_zeros(kAttacksCopy);
+		if (tosq == 64) break; // No more moves for this king
+
+		(*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
+		movesPointer++;
+
+		U64 bitMask = (1ULL << tosq);
+		kAttacksCopy = kAttacksCopy & ~bitMask; // Clear the least significant bit
+    }
+
+	// Generate castling moves (not fully legal until we check for checks, but we can generate them here)
+
+    if ((sideToMove ? wKingCastleKRights : bKingCastleKRights))
+    {
+		if ((sideToMove ? (allPiecesBB & 0x60) == 0 : (allPiecesBB & 0x6000000000000000) == 0)) // Squares between king and rook must be empty
+		{
+			(*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 6 : 62) << 6) | FLAG_CASTLE_K;
+			movesPointer++;
+		}
+    }
+
+    if ((sideToMove ? wKingCastleQRights : bKingCastleQRights))
+    {
+        if ((sideToMove ? (allPiecesBB & 0xC) == 0 : (allPiecesBB & 0xC00000000000000) == 0)) // Squares between king and rook must be empty
+        {
+            (*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 3 : 58) << 6) | FLAG_CASTLE_Q;
+            movesPointer++;
+        }
+    }
+
 }
