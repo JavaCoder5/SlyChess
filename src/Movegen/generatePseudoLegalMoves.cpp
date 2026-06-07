@@ -111,5 +111,31 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
 
     }
 
+    U64 knightBBCopy = sideToMove ? wKnightBB : bKnightBB;
+
+    // Generate knight moves
+    while (true)
+    {
+		int sq = count_trailing_zeros(knightBBCopy);
+        if (sq == 64) break; // No more knights
+
+		U64 attacksCopy = knightAttacks[sq] & ~ownPieces;
+
+        while (true)
+        {
+			int tosq = count_trailing_zeros(attacksCopy);
+			if (tosq == 64) break; // No more moves for this knight
+
+			(*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
+			movesPointer++;
+
+			U64 bitMask = (1ULL << tosq);
+			attacksCopy = attacksCopy & ~bitMask; // Clear the most significant bit
+        }
+
+        U64 bitMask = (1ULL << sq);
+		knightBBCopy = knightBBCopy & ~bitMask; // Clear the most significant bit
+
+    }
 
 }
