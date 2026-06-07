@@ -1,6 +1,7 @@
 #pragma once
 #include <src/Constants/Constants.h>
 #include <src/Constants/Macros.h>
+#include <src/Movegen/MagicBoards/lookupAttacks.h>
 
 extern U64 wPawnBB;
 extern U64 wKnightBB;

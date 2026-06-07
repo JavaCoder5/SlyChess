@@ -138,4 +138,31 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
 
     }
 
+    // Generate bishop moves
+	U64 bishopBBCopy = sideToMove ? wBishopBB : bBishopBB;
+
+    while (true)
+    {
+		int sq = count_trailing_zeros(bishopBBCopy);
+		if (sq == 64) break; // No more bishops
+
+        U64 attacksCopy = lookupBishopAttacks(sq, allPiecesBB) & ~ownPieces;
+
+        while (true)
+        {
+			int tosq = count_trailing_zeros(attacksCopy);
+			if (tosq == 64) break; // No more moves for this bishop
+
+            (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
+            movesPointer++;
+
+			U64 bitMask = (1ULL << tosq);
+			attacksCopy = attacksCopy & ~bitMask; // Clear the most significant bit
+        }
+
+		U64 bitmask = (1ULL << sq);
+		bishopBBCopy = bishopBBCopy & ~bitmask; // Clear the most significant bit
+
+    }
+
 }
