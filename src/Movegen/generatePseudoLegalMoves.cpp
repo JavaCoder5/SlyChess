@@ -1,6 +1,6 @@
 #include "generatePseudoLegalMoves.h"
 
-void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
+void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size)
 {
     U64 ownPieces = sideToMove ? allWhiteBB : allBlackBB;
     U64 opponentPieces = sideToMove ? allBlackBB : allWhiteBB;
@@ -258,5 +258,7 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove)
             movesPointer++;
         }
     }
+
+	*size = movesPointer; // Set the output size to the number of moves generated
 
 }

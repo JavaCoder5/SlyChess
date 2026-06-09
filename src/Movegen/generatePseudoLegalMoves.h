@@ -37,4 +37,4 @@ extern bool wKingCastleQRights;
 extern bool bKingCastleKRights;
 extern bool bKingCastleQRights;
 
-void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove);
+void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size);

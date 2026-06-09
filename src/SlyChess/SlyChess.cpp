@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <string>
 #include <sstream>
+#include <algorithm>
 #include <bitset>
 #include <src/Constants/Constants.h>
 #include <src/Constants/Macros.h>
@@ -45,6 +46,23 @@ bool wKingCastleQRights = true;
 
 bool bKingCastleKRights = true;
 bool bKingCastleQRights = true;
+// Compact undo information per move (no full snapshots)
+struct UndoInfo {
+    Move move;
+    char capturedPiece; // 'P','N','B','R','Q','K' for white, lowercase for black, 0 if none
+    int capturedSquare; // square of captured piece (for en-passant may differ from to-square)
+    int prevEnPassantSquare;
+    bool prev_wKR, prev_wQR, prev_bKR, prev_bQR;
+    bool wasEnPassant;
+    bool wasPromotion;
+    bool wasCastle;
+    int rookFrom, rookTo;
+};
+
+// Fixed-size history to avoid dynamic allocation
+constexpr int MAX_UNDO = 8192;
+static UndoInfo history[MAX_UNDO];
+static int historyTop = 0; // next free index
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -243,6 +261,328 @@ Move UCIToMove(std::string move)
 	return (fromSq) | (toSq << 6);
 }
 
+// Apply a move to the global board state. This updates piece bitboards,
+// en-passant square, castling rights and flips the side-to-move (turn).
+void makeMove(Move m)
+{
+    int fromSq = m & 0x3F;
+    int toSq = (m >> 6) & 0x3F;
+    int flags = m & 0xF000;
+
+    U64 fromBit = 1ULL << fromSq;
+    U64 toBit = 1ULL << toSq;
+
+    // Clear en-passant by default; it will be set again on double pawn pushes
+    enPassantSquare = -1;
+
+    bool whiteToMove = turn;
+
+    // Helper: clear any piece of the opponent on the destination square
+    auto clearOpponentOnSquare = [&](int sq) {
+        U64 bit = 1ULL << sq;
+        if (whiteToMove) {
+            if (bPawnBB & bit) bPawnBB &= ~bit;
+            if (bKnightBB & bit) bKnightBB &= ~bit;
+            if (bBishopBB & bit) bBishopBB &= ~bit;
+            if (bRookBB & bit) bRookBB &= ~bit;
+            if (bQueenBB & bit) bQueenBB &= ~bit;
+            if (bKingBB & bit) bKingBB &= ~bit;
+        } else {
+            if (wPawnBB & bit) wPawnBB &= ~bit;
+            if (wKnightBB & bit) wKnightBB &= ~bit;
+            if (wBishopBB & bit) wBishopBB &= ~bit;
+            if (wRookBB & bit) wRookBB &= ~bit;
+            if (wQueenBB & bit) wQueenBB &= ~bit;
+            if (wKingBB & bit) wKingBB &= ~bit;
+        }
+    };
+
+    // Handle en-passant capture
+    if (flags == FLAG_EN_PASSANT) {
+        int capturedPawnSq = whiteToMove ? (toSq - 8) : (toSq + 8);
+        if (capturedPawnSq >= 0 && capturedPawnSq < 64) {
+            U64 capBit = 1ULL << capturedPawnSq;
+            if (whiteToMove) bPawnBB &= ~capBit; else wPawnBB &= ~capBit;
+        }
+    }
+
+    // Identify and move the piece from 'fromSq' to 'toSq'
+    if (whiteToMove) {
+        // White to move: check which white piece is on fromSq
+        if (wPawnBB & fromBit) {
+            // Promotion handling
+            if (flags == FLAG_PROMOTION_Q || flags == FLAG_PROMOTION_R || flags == FLAG_PROMOTION_B || flags == FLAG_PROMOTION_N) {
+                // remove pawn
+                wPawnBB &= ~fromBit;
+                // clear any captured piece on toSq
+                clearOpponentOnSquare(toSq);
+                // place promoted piece
+                if (flags == FLAG_PROMOTION_Q) wQueenBB |= toBit;
+                else if (flags == FLAG_PROMOTION_R) wRookBB |= toBit;
+                else if (flags == FLAG_PROMOTION_B) wBishopBB |= toBit;
+                else if (flags == FLAG_PROMOTION_N) wKnightBB |= toBit;
+            } else {
+                // Normal pawn move
+                wPawnBB &= ~fromBit;
+                // capture if any
+                if (!(flags == FLAG_EN_PASSANT)) clearOpponentOnSquare(toSq);
+                wPawnBB |= toBit;
+
+                // If pawn moved two squares, set en-passant target
+                int fromRank = fromSq / 8;
+                int toRank = toSq / 8;
+                if (toRank - fromRank == 2) {
+                    enPassantSquare = fromSq + 8;
+                }
+            }
+        }
+        else if (wKnightBB & fromBit) {
+            wKnightBB &= ~fromBit; clearOpponentOnSquare(toSq); wKnightBB |= toBit;
+        }
+        else if (wBishopBB & fromBit) {
+            wBishopBB &= ~fromBit; clearOpponentOnSquare(toSq); wBishopBB |= toBit;
+        }
+        else if (wRookBB & fromBit) {
+            wRookBB &= ~fromBit; clearOpponentOnSquare(toSq); wRookBB |= toBit;
+            // Update castling rights if rook moved from initial squares
+            if (fromSq == 0) wKingCastleQRights = false; // a1
+            else if (fromSq == 7) wKingCastleKRights = false; // h1
+        }
+        else if (wQueenBB & fromBit) {
+            wQueenBB &= ~fromBit; clearOpponentOnSquare(toSq); wQueenBB |= toBit;
+        }
+        else if (wKingBB & fromBit) {
+            wKingBB &= ~fromBit; clearOpponentOnSquare(toSq); wKingBB |= toBit;
+            // King moved: revoke castling rights
+            wKingCastleKRights = false; wKingCastleQRights = false;
+
+            // Handle castling: either flagged or detected by king moving two squares
+            if (flags == FLAG_CASTLE_K) {
+                U64 h1 = 1ULL << 7;
+                U64 f1 = 1ULL << 5;
+                if (wRookBB & h1) { wRookBB &= ~h1; wRookBB |= f1; }
+            } else if (flags == FLAG_CASTLE_Q) {
+                U64 a1 = 1ULL << 0;
+                U64 d1 = 1ULL << 3;
+                if (wRookBB & a1) { wRookBB &= ~a1; wRookBB |= d1; }
+            } else {
+                int diff = toSq - fromSq;
+                if (diff == 2) {
+                    // king side castling e1->g1: move h1->f1
+                    U64 h1 = 1ULL << 7;
+                    U64 f1 = 1ULL << 5;
+                    if (wRookBB & h1) { wRookBB &= ~h1; wRookBB |= f1; }
+                } else if (diff == -2) {
+                    // queen side castling e1->c1: move a1->d1
+                    U64 a1 = 1ULL << 0;
+                    U64 d1 = 1ULL << 3;
+                    if (wRookBB & a1) { wRookBB &= ~a1; wRookBB |= d1; }
+                }
+            }
+        }
+    } else {
+        // Black to move
+        if (bPawnBB & fromBit) {
+            if (flags == FLAG_PROMOTION_Q || flags == FLAG_PROMOTION_R || flags == FLAG_PROMOTION_B || flags == FLAG_PROMOTION_N) {
+                bPawnBB &= ~fromBit;
+                clearOpponentOnSquare(toSq);
+                if (flags == FLAG_PROMOTION_Q) bQueenBB |= toBit;
+                else if (flags == FLAG_PROMOTION_R) bRookBB |= toBit;
+                else if (flags == FLAG_PROMOTION_B) bBishopBB |= toBit;
+                else if (flags == FLAG_PROMOTION_N) bKnightBB |= toBit;
+            } else {
+                bPawnBB &= ~fromBit;
+                if (!(flags == FLAG_EN_PASSANT)) clearOpponentOnSquare(toSq);
+                bPawnBB |= toBit;
+
+                int fromRank = fromSq / 8;
+                int toRank = toSq / 8;
+                if (fromRank - toRank == 2) {
+                    enPassantSquare = fromSq - 8;
+                }
+            }
+        }
+        else if (bKnightBB & fromBit) {
+            bKnightBB &= ~fromBit; clearOpponentOnSquare(toSq); bKnightBB |= toBit;
+        }
+        else if (bBishopBB & fromBit) {
+            bBishopBB &= ~fromBit; clearOpponentOnSquare(toSq); bBishopBB |= toBit;
+        }
+        else if (bRookBB & fromBit) {
+            bRookBB &= ~fromBit; clearOpponentOnSquare(toSq); bRookBB |= toBit;
+            if (fromSq == 56) bKingCastleQRights = false; // a8
+            else if (fromSq == 63) bKingCastleKRights = false; // h8
+        }
+        else if (bQueenBB & fromBit) {
+            bQueenBB &= ~fromBit; clearOpponentOnSquare(toSq); bQueenBB |= toBit;
+        }
+        else if (bKingBB & fromBit) {
+            bKingBB &= ~fromBit; clearOpponentOnSquare(toSq); bKingBB |= toBit;
+            bKingCastleKRights = false; bKingCastleQRights = false;
+
+            if (flags == FLAG_CASTLE_K) {
+                U64 h8 = 1ULL << 63;
+                U64 f8 = 1ULL << 61;
+                if (bRookBB & h8) { bRookBB &= ~h8; bRookBB |= f8; }
+            } else if (flags == FLAG_CASTLE_Q) {
+                U64 a8 = 1ULL << 56;
+                U64 d8 = 1ULL << 59;
+                if (bRookBB & a8) { bRookBB &= ~a8; bRookBB |= d8; }
+            } else {
+                int diff = toSq - fromSq;
+                if (diff == 2) {
+                    // black king side e8->g8: move h8->f8
+                    U64 h8 = 1ULL << 63;
+                    U64 f8 = 1ULL << 61;
+                    if (bRookBB & h8) { bRookBB &= ~h8; bRookBB |= f8; }
+                } else if (diff == -2) {
+                    // black queen side e8->c8: move a8->d8
+                    U64 a8 = 1ULL << 56;
+                    U64 d8 = 1ULL << 59;
+                    if (bRookBB & a8) { bRookBB &= ~a8; bRookBB |= d8; }
+                }
+            }
+        }
+    }
+
+    // If a rook was captured on its starting square, update castling rights for that side
+    // White rooks start at 0 (a1) and 7 (h1); black at 56 (a8) and 63 (h8)
+    if ( (bRookBB & (1ULL<<0)) == 0 ) { /* nothing */ }
+    // Check captures on rook starting squares and update opponent rights
+    if ((bRookBB & (1ULL << 0)) == 0) { /* a1 is white rook square, irrelevant for black */ }
+
+    // Update aggregate bitboards
+    allWhiteBB = wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB;
+    allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB;
+    allPiecesBB = allWhiteBB | allBlackBB;
+
+    // Flip side to move
+    turn = !turn;
+}
+
+void unmakeMove(Move m)
+{
+    if (historyTop <= 0) return;
+    UndoInfo ui = history[--historyTop];
+
+    // Determine moving side: mover was the side that just moved, which is !turn
+    bool moverWhite = !turn;
+
+    int fromSq = m & 0x3F;
+    int toSq = (m >> 6) & 0x3F;
+    int flags = m & 0xF000;
+
+    U64 fromBit = 1ULL << fromSq;
+    U64 toBit = 1ULL << toSq;
+
+    // Revert promotions
+    if (ui.wasPromotion) {
+        if (moverWhite) {
+            if (flags == FLAG_PROMOTION_Q) wQueenBB &= ~toBit;
+            else if (flags == FLAG_PROMOTION_R) wRookBB &= ~toBit;
+            else if (flags == FLAG_PROMOTION_B) wBishopBB &= ~toBit;
+            else if (flags == FLAG_PROMOTION_N) wKnightBB &= ~toBit;
+            wPawnBB |= fromBit;
+        } else {
+            if (flags == FLAG_PROMOTION_Q) bQueenBB &= ~toBit;
+            else if (flags == FLAG_PROMOTION_R) bRookBB &= ~toBit;
+            else if (flags == FLAG_PROMOTION_B) bBishopBB &= ~toBit;
+            else if (flags == FLAG_PROMOTION_N) bKnightBB &= ~toBit;
+            bPawnBB |= fromBit;
+        }
+        if (ui.capturedPiece) {
+            U64 capBit = 1ULL << ui.capturedSquare;
+            if (ui.capturedPiece == 'p') bPawnBB |= capBit;
+            else if (ui.capturedPiece == 'n') bKnightBB |= capBit;
+            else if (ui.capturedPiece == 'b') bBishopBB |= capBit;
+            else if (ui.capturedPiece == 'r') bRookBB |= capBit;
+            else if (ui.capturedPiece == 'q') bQueenBB |= capBit;
+            else if (ui.capturedPiece == 'k') bKingBB |= capBit;
+            else if (ui.capturedPiece == 'P') wPawnBB |= capBit;
+            else if (ui.capturedPiece == 'N') wKnightBB |= capBit;
+            else if (ui.capturedPiece == 'B') wBishopBB |= capBit;
+            else if (ui.capturedPiece == 'R') wRookBB |= capBit;
+            else if (ui.capturedPiece == 'Q') wQueenBB |= capBit;
+            else if (ui.capturedPiece == 'K') wKingBB |= capBit;
+        }
+    }
+    else if (ui.wasEnPassant) {
+        if (moverWhite) {
+            wPawnBB &= ~toBit;
+            U64 capBit = 1ULL << ui.capturedSquare;
+            bPawnBB |= capBit;
+            wPawnBB |= fromBit;
+        } else {
+            bPawnBB &= ~toBit;
+            U64 capBit = 1ULL << ui.capturedSquare;
+            wPawnBB |= capBit;
+            bPawnBB |= fromBit;
+        }
+    }
+    else {
+        if (moverWhite) {
+            if (wPawnBB & toBit) { wPawnBB &= ~toBit; wPawnBB |= fromBit; }
+            else if (wKnightBB & toBit) { wKnightBB &= ~toBit; wKnightBB |= fromBit; }
+            else if (wBishopBB & toBit) { wBishopBB &= ~toBit; wBishopBB |= fromBit; }
+            else if (wRookBB & toBit) { wRookBB &= ~toBit; wRookBB |= fromBit; }
+            else if (wQueenBB & toBit) { wQueenBB &= ~toBit; wQueenBB |= fromBit; }
+            else if (wKingBB & toBit) { wKingBB &= ~toBit; wKingBB |= fromBit; }
+
+            if (ui.capturedPiece) {
+                U64 capBit = 1ULL << ui.capturedSquare;
+                if (ui.capturedPiece == 'p') bPawnBB |= capBit;
+                else if (ui.capturedPiece == 'n') bKnightBB |= capBit;
+                else if (ui.capturedPiece == 'b') bBishopBB |= capBit;
+                else if (ui.capturedPiece == 'r') bRookBB |= capBit;
+                else if (ui.capturedPiece == 'q') bQueenBB |= capBit;
+                else if (ui.capturedPiece == 'k') bKingBB |= capBit;
+            }
+
+            if (ui.wasCastle && ui.rookFrom >= 0) {
+                U64 rf = 1ULL << ui.rookFrom;
+                U64 rt = 1ULL << ui.rookTo;
+                if (wRookBB & rt) { wRookBB &= ~rt; wRookBB |= rf; }
+            }
+        } else {
+            if (bPawnBB & toBit) { bPawnBB &= ~toBit; bPawnBB |= fromBit; }
+            else if (bKnightBB & toBit) { bKnightBB &= ~toBit; bKnightBB |= fromBit; }
+            else if (bBishopBB & toBit) { bBishopBB &= ~toBit; bBishopBB |= fromBit; }
+            else if (bRookBB & toBit) { bRookBB &= ~toBit; bRookBB |= fromBit; }
+            else if (bQueenBB & toBit) { bQueenBB &= ~toBit; bQueenBB |= fromBit; }
+            else if (bKingBB & toBit) { bKingBB &= ~toBit; bKingBB |= fromBit; }
+
+            if (ui.capturedPiece) {
+                U64 capBit = 1ULL << ui.capturedSquare;
+                if (ui.capturedPiece == 'P') wPawnBB |= capBit;
+                else if (ui.capturedPiece == 'N') wKnightBB |= capBit;
+                else if (ui.capturedPiece == 'B') wBishopBB |= capBit;
+                else if (ui.capturedPiece == 'R') wRookBB |= capBit;
+                else if (ui.capturedPiece == 'Q') wQueenBB |= capBit;
+                else if (ui.capturedPiece == 'K') wKingBB |= capBit;
+            }
+
+            if (ui.wasCastle && ui.rookFrom >= 0) {
+                U64 rf = 1ULL << ui.rookFrom;
+                U64 rt = 1ULL << ui.rookTo;
+                if (bRookBB & rt) { bRookBB &= ~rt; bRookBB |= rf; }
+            }
+        }
+    }
+
+    // Restore previous en-passant and castling rights
+    enPassantSquare = ui.prevEnPassantSquare;
+    wKingCastleKRights = ui.prev_wKR; wKingCastleQRights = ui.prev_wQR;
+    bKingCastleKRights = ui.prev_bKR; bKingCastleQRights = ui.prev_bQR;
+
+    // Update aggregate bitboards
+    allWhiteBB = wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB;
+    allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB;
+    allPiecesBB = allWhiteBB | allBlackBB;
+
+    // Flip side back to mover
+    turn = !turn;
+}
+
 int main() {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
@@ -276,20 +616,51 @@ int main() {
             if (sub == "startpos") {
                 // set to standard start position
                 setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+                // Check for optional moves following startpos
+                std::string token;
+                if (ss >> token && token == "moves") {
+                    std::string mv;
+                    while (ss >> mv) {
+                        Move m = UCIToMove(mv);
+                        if (m != 0) makeMove(m);
+                    }
+                }
             }
             else if (sub == "fen") {
-                // remainder of the line after 'fen ' is the FEN string
+                // remainder of the line after 'fen ' is the FEN string plus optional moves
                 std::string fenRest;
                 std::getline(ss, fenRest);
                 // trim leading spaces
                 size_t p = fenRest.find_first_not_of(' ');
                 if (p != std::string::npos) fenRest = fenRest.substr(p);
                 if (!fenRest.empty()) {
-                    setPositionFromFEN(fenRest);
+                    // Tokenize fenRest. FEN has up to 6 space-separated fields. After that optional 'moves' may follow.
+                    std::stringstream fss(fenRest);
+                    std::vector<std::string> parts;
+                    std::string tmp;
+                    while (fss >> tmp) parts.push_back(tmp);
+
+                    size_t fenTokens = std::min((size_t)6, parts.size());
+                    std::string fenString;
+                    for (size_t i = 0; i < fenTokens; ++i) {
+                        if (i) fenString += " ";
+                        fenString += parts[i];
+                    }
+
+                    if (!fenString.empty()) {
+                        setPositionFromFEN(fenString);
+                    }
+
+                    // If there are extra tokens and the next token is 'moves', apply the moves that follow
+                    if (parts.size() > fenTokens && parts[fenTokens] == "moves") {
+                        for (size_t i = fenTokens + 1; i < parts.size(); ++i) {
+                            Move m = UCIToMove(parts[i]);
+                            if (m != 0) makeMove(m);
+                        }
+                    }
                 }
             }
-
-            // ignore optional "moves" and move list for now
 
         }
         else if (line.rfind("go", 0) == 0) {
@@ -299,6 +670,16 @@ int main() {
                 std::stringstream ss(line);
                 std::string token;
                 ss >> token; // "go"
+
+                int arraySize = 0;
+
+                Move moves[256] = { 0 };
+				generatePseudoLegalMoves(&moves, turn, &arraySize);
+
+                int randomMove = rand() % (arraySize);
+
+                std::cout << "bestmove " << moveToUCI(moves[randomMove]) << std::endl << std::flush;
+
                 if (ss >> token && token == "depth")
                     ss >> depth;
                 else if (token == "infinite")
@@ -315,8 +696,10 @@ int main() {
         else if (line.rfind("all", 0) == 0) {
 			std::cout << "Generating all pseudo-legal moves for the current position...\n" << std::flush;
 
+            int arraySize = 0;
+
             Move moves[256] = { 0 };
-	        generatePseudoLegalMoves(&moves, turn);
+	        generatePseudoLegalMoves(&moves, turn, &arraySize);
 
             int moveCounter = 0;
             while (true)
@@ -557,6 +940,14 @@ int main() {
         else if (line == "sstp")
         {
 			turn = !turn; // Toggle turn for testing purposes
+        }
+        else if (line == "undo") {
+            if (historyTop <= 0) {
+                std::cout << "Nothing to undo\n" << std::flush;
+            } else {
+                Move last = history[historyTop-1].move;
+                unmakeMove(last);
+            }
         }
         else if (line == "quit") {
                 break;
