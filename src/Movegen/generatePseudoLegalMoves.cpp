@@ -13,13 +13,26 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size)
     U64 pawnBBCopy = sideToMove ? wPawnBB : bPawnBB;
     while (true)
     {
+        // Get the square of the least significant pawn bit and generate moves for that pawn
         int sq = count_trailing_zeros(pawnBBCopy);
         if (sq == 64) break; // No more pawns
 
+        // Create a copy of the attack moves for this pawn, which will be modified as moves are generated
         U64 attacksCopy = sideToMove ? wPawnAttacks[sq] & ~allPiecesBB : bPawnAttacks[sq] & ~allPiecesBB;
+
+        U64 attacksCompareMask = sideToMove ? wPawnAttacks[sq] : bPawnAttacks[sq];
+        if (attacksCompareMask != attacksCopy)
+        {
+            // If the current attacksCopy differs from the original attack mask, 
+            // we should remove the double-push move even if it doesn't exist in attacksCopy, 
+            // because the double-push move is only legal if the square in front of the pawn is empty.
+
+    		attacksCopy = attacksCopy & ~(1ULL << (sq + (sideToMove ? 16 : -16))); // Remove the double-push move if it exists
+        }
 
         while (true)
         {
+			// Handle promotions for non-capture moves
             U64 promotionMoves = attacksCopy & (sideToMove ? whitePromotionMask : blackPromotionMask);
             while (promotionMoves)
             {
@@ -38,7 +51,8 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size)
                 promotionMoves = promotionMoves & ~bitMask; // Clear the least significant bit
             }
 
-            int tosq = count_trailing_zeros(attacksCopy);
+            // Handle regular non-capture moves
+            int tosq = count_trailing_zeros(attacksCopy); // Get the least significant bit index for the next move (usually there is only one, but there can be two if the pawn has not moved)
             if (tosq == 64) break; // No more moves for this pawn
 
             (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
@@ -48,6 +62,7 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size)
             U64 bitMask = (1ULL << tosq);
             attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
         }
+
         // Generate captures for this pawn
 
         U64 captureMask = sideToMove ? wPawnCaptures[sq] : bPawnCaptures[sq];
@@ -240,24 +255,27 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size)
     }
 
 	// Generate castling moves (not fully legal until we check for checks, but we can generate them here)
-
-    if ((sideToMove ? wKingCastleKRights : bKingCastleKRights))
+    if (sq != 64)
     {
-		if ((sideToMove ? (allPiecesBB & 0x60) == 0 : (allPiecesBB & 0x6000000000000000) == 0)) // Squares between king and rook must be empty
-		{
-			(*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 6 : 62) << 6) | FLAG_CASTLE_K;
-			movesPointer++;
-		}
-    }
-
-    if ((sideToMove ? wKingCastleQRights : bKingCastleQRights))
-    {
-        if ((sideToMove ? (allPiecesBB & 0xC) == 0 : (allPiecesBB & 0xC00000000000000) == 0)) // Squares between king and rook must be empty
+        if ((sideToMove ? wKingCastleKRights : bKingCastleKRights))
         {
-            (*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 3 : 58) << 6) | FLAG_CASTLE_Q;
-            movesPointer++;
+            if ((sideToMove ? (allPiecesBB & 0x60) == 0 : (allPiecesBB & 0x6000000000000000) == 0)) // Squares between king and rook must be empty
+            {
+                (*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 6 : 62) << 6) | FLAG_CASTLE_K;
+                movesPointer++;
+            }
+        }
+
+        if ((sideToMove ? wKingCastleQRights : bKingCastleQRights))
+        {
+            if ((sideToMove ? (allPiecesBB & 0xC) == 0 : (allPiecesBB & 0xC00000000000000) == 0)) // Squares between king and rook must be empty
+            {
+                (*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 2 : 58) << 6) | FLAG_CASTLE_Q;
+                movesPointer++;
+            }
         }
     }
+    
 
 	*size = movesPointer; // Set the output size to the number of moves generated
 

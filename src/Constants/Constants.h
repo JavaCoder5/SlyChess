@@ -4,6 +4,21 @@
 using U64 = unsigned long long;
 using Move = unsigned short;
 
+// Compact undo information per move (no full snapshots)
+struct UndoInfo {
+    Move move;
+    char capturedPiece; // 'P','N','B','R','Q','K' for white, lowercase for black, 0 if none
+    int capturedSquare; // square of captured piece (for en-passant may differ from to-square)
+    int prevEnPassantSquare;
+    bool prev_wKR, prev_wQR, prev_bKR, prev_bQR;
+    bool wasEnPassant;
+    bool wasPromotion;
+    bool wasCastle;
+    int rookFrom, rookTo;
+};
+
+constexpr int MAX_UNDO = 8192;
+
 static const int INF = 1000000000;
 static const int MINF = -1000000000;
 
