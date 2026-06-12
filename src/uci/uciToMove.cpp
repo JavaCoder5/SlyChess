@@ -2,7 +2,7 @@
 
 Move UCIToMove(std::string move)
 {
-	if (move.length() < 5) return 0; // Invalid move string
+	if (move.length() > 5) return 0; // Invalid move string
 	char fromFile = move[0];
 	char fromRank = move[1];
 	char toFile = move[2];
@@ -21,6 +21,19 @@ Move UCIToMove(std::string move)
 	else if (promo == 'r') return (fromSq) | (toSq << 6) | FLAG_PROMOTION_R;
 	else if (promo == 'b') return (fromSq) | (toSq << 6) | FLAG_PROMOTION_B;
 	else if (promo == 'n') return (fromSq) | (toSq << 6) | FLAG_PROMOTION_N;
+
+	if ((1ULL << (toSq + (turn ? -8 : 8))))
+	{
+		std::cout << (1ULL << (toSq + (turn ? -8 : 8))) << std::endl;
+	}
+	else
+	{
+		std::cout << "0" << std::endl;
+	}
+
+	if ((turn ? bPawnBB : wPawnBB) & (1ULL << (toSq + (turn ? -8 : 8))))
+		if (~(allPiecesBB) & (1ULL << (toSq)))
+			return (fromSq) | (toSq << 6) | FLAG_EN_PASSANT;
 
 	return (fromSq) | (toSq << 6);
 }
