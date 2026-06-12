@@ -19,6 +19,8 @@
 #include <src/Movegen/Board/unmakeMove.h>
 #include <src/uci/uciToMove.h>
 #include <src/Movegen/Perft/perft.h>
+#include <src/Search/search.h>
+#include <src/Movegen/generateLegalCaptures.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -246,6 +248,7 @@ int main() {
         if (line == "uci") {
             std::cout << "id name SlyChess\n";
             std::cout << "id author JavaCoder5\n";
+            std::cout << "id version 0.1b\n";
             std::cout << "uciok\n" << std::flush;
         }
         else if (line == "isready") {
@@ -314,30 +317,22 @@ int main() {
         }
         else if (line.rfind("go", 0) == 0) {
             // Parse depth (only "go depth X" for now)
-            int depth = 10;
-            {
-                std::stringstream ss(line);
-                std::string token;
-                ss >> token; // "go"
+            int depth = 5;
+            std::stringstream ss(line);
+            std::string token;
+            ss >> token; // "go"
 
-                int arraySize = 0;
+            if (ss >> token && token == "depth")
+                ss >> depth;
+            else if (token == "infinite")
+                depth = INF;
 
-                Move moves[256] = { 0 };
-				generateLegalMoves(&moves, turn, &arraySize);
+            search(depth);
 
-                int randomMove = rand() % (arraySize);
-
-                std::cout << "bestmove " << moveToUCI(moves[randomMove]) << std::endl << std::flush;
-
-                if (ss >> token && token == "depth")
-                    ss >> depth;
-                else if (token == "infinite")
-                    depth = INF;
-            }
         }
         else if (line == "eval") {
-            // int score = evaluate();
-            // std::cout << "Evaluation: " << score << "\n" << std::flush;
+            int score = evaluate();
+            std::cout << "Evaluation: " << score << "\n" << std::flush;
         }
         else if (line.rfind("legals", 0) == 0) {
             std::cout << "Generating all legal moves for the current position...\n" << std::flush;
@@ -647,7 +642,21 @@ int main() {
         else if (line == "captures")
         {
             // Generate and print capture moves only (for testing quiescence move generation)
+            std::cout << "Generating all captures for the current position...\n" << std::flush;
 
+            int arraySize = 0;
+
+            Move moves[256] = { 0 };
+            generateLegalCaptures(&moves, turn, &arraySize);
+
+            int moveCounter = 0;
+            while (true)
+            {
+                if (moves[moveCounter] == 0) break;
+                std::cout << "Generated move: " << moveToUCI(moves[moveCounter]) << "\n" << std::flush;
+                moveCounter++;
+                if (moveCounter >= 256) break;
+            }
         }
         else if (line == "sstp")
         {
