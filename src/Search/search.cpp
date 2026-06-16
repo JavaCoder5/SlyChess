@@ -19,18 +19,53 @@ void search(int depth)
 		return;
 	}
 
-	for (int i = 0; i < moveCount; i++)
+	for (int iterativeDepth = 1; iterativeDepth <= depth; iterativeDepth++)
 	{
-		if (moveList[i] == 0) continue;
+		int alpha = MINF;
+		int beta = INF;
 
-		makeMove(moveList[i]);
-		int score = -alphaBeta(depth, MINF, INF);
-		unmakeMove(moveList[i]);
+		for (int i = 0; i < moveCount; i++)
+		{
+			if (moveList[i] == 0) continue;
 
-		if (score >= currentBestScore) {
-			currentBestScore = score;
-			currentBest = moveList[i];
+			makeMove(moveList[i]);
+			ply++;
+			int score = -alphaBeta(iterativeDepth - 1, -beta, -alpha);
+			ply--;
+			unmakeMove(moveList[i]);
+
+			if (score > alpha)
+			{
+				alpha = score;
+				currentBestScore = score;
+				currentBest = moveList[i];
+			}
 		}
+
+		if (currentBestScore > 99950)
+		{
+			std::cout << "info depth " << iterativeDepth <<
+				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
+				" pv " << moveToUCI(currentBest) <<
+				std::endl << std::flush;
+		}
+		else if (currentBestScore < -99950)
+		{
+			std::cout << "info depth " << iterativeDepth <<
+				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
+				" pv " << moveToUCI(currentBest) <<
+				std::endl << std::flush;
+		}
+		else
+		{
+			std::cout << "info depth " << iterativeDepth <<
+				" score cp " << currentBestScore <<
+				" pv " << moveToUCI(currentBest) <<
+				std::endl << std::flush;
+		}
+
+		movePVToFront(&moveList, moveCount, currentBest);
+
 	}
 
 	std::cout << "bestmove " << moveToUCI(currentBest) << std::endl << std::flush;

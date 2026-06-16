@@ -4,10 +4,17 @@ int quiescence(int alpha, int beta)
 {
 	int bestScore = MINF;
 
+	int standPat = evaluate();
+
+	if (standPat >= beta)
+		return beta;
+	if (standPat > alpha)
+		alpha = standPat;
+
 	Move moveList[256] = { 0 };
 	int moveCount = 0;
 
-	generateLegalMoves(&moveList, turn, &moveCount);
+	generateLegalCaptures(&moveList, turn, &moveCount);
 
 	sortLegalMoves(&moveList, turn, moveCount);
 
@@ -21,14 +28,18 @@ int quiescence(int alpha, int beta)
 		if (moveList[i] == 0) continue;
 
 		makeMove(moveList[i]);
-		int score = -quiescence(-alpha, -beta);
+		int score = -quiescence(-beta, -alpha);
 		unmakeMove(moveList[i]);
+		/*
 		if (score > bestScore)
 		{
 			bestScore = score;
 			if (score > alpha)
 				alpha = score;
 		}
+		*/
+		if (score > alpha)
+			alpha = score;
 		if (score >= beta)
 			return bestScore;
 	}

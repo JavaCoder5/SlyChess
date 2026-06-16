@@ -22,6 +22,8 @@ constexpr int MAX_UNDO = 8192;
 static const int INF = 1000000000;
 static const int MINF = -1000000000;
 
+constexpr int MATE = -100000;
+
 #define WHITE true
 #define BLACK false
 

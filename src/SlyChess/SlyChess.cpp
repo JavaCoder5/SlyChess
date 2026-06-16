@@ -60,7 +60,9 @@ bool bKingCastleQRights = true;
 UndoInfo history[MAX_UNDO];
 int historyTop = 0; // next free index
 
-int problemMoveCount = 0;
+//int problemMoveCount = 0;
+
+int ply = 0;
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -669,6 +671,16 @@ int main() {
                 Move last = history[historyTop-1].move;
                 unmakeMove(last);
             }
+        }
+        else if (line.rfind("invert", 0) == 0)
+        {
+            std::stringstream ss(line);
+            std::string token;
+            int square = 0;
+            ss >> token; // "invert"
+            ss >> square;
+
+            std::cout << square << " inverted is " << (8 - (square / 8)) + (square % 8) << std::endl;
         }
         else if (line == "quit") {
                 break;
