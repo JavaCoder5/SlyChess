@@ -5,6 +5,8 @@ U64 abNodes = 0;
 
 void search(int depth)
 {
+	searchRunning = true;
+
 	Move moveList[256] = { 0 };
 	int moveCount = 0;
 
@@ -23,6 +25,8 @@ void search(int depth)
 
 	for (int iterativeDepth = 1; iterativeDepth <= depth; iterativeDepth++)
 	{
+		if (stopSearch) break;
+
 		int alpha = MINF;
 		int beta = INF;
 
@@ -33,6 +37,8 @@ void search(int depth)
 		for (int i = 0; i < moveCount; i++)
 		{
 			if (moveList[i] == 0) continue;
+
+			if (stopSearch) break;
 
 			makeMove(moveList[i]);
 			ply++;
@@ -82,4 +88,6 @@ void search(int depth)
 	}
 
 	std::cout << "bestmove " << moveToUCI(currentBest) << std::endl << std::flush;
+
+	searchRunning = false;
 }

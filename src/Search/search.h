@@ -5,9 +5,13 @@
 #include <src/uci/moveToUci.h>
 #include "movePVToFront.h"
 #include <chrono> 
+#include <atomic>
 
 extern bool turn;
 
 extern int ply;
+
+extern std::atomic_bool searchRunning;
+extern std::atomic_bool stopSearch;
 
 void search(int depth);

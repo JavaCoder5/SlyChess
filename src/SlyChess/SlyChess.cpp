@@ -21,6 +21,8 @@
 #include <src/Movegen/Perft/perft.h>
 #include <src/Search/search.h>
 #include <src/Movegen/generateLegalCaptures.h>
+#include <src/Search/stopAndJoinSearch.h>
+#include <thread>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -63,6 +65,11 @@ int historyTop = 0; // next free index
 //int problemMoveCount = 0;
 
 int ply = 0;
+
+std::atomic_bool searchRunning = false;
+std::atomic_bool stopSearch = false;
+
+std::thread searchThread;
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -250,7 +257,7 @@ int main() {
         if (line == "uci") {
             std::cout << "id name SlyChess\n";
             std::cout << "id author JavaCoder5\n";
-            std::cout << "id version 0.1b\n";
+            std::cout << "id version 0.1\n";
             std::cout << "uciok\n" << std::flush;
         }
         else if (line == "isready") {
@@ -329,7 +336,10 @@ int main() {
             else if (token == "infinite")
                 depth = INF;
 
-            search(depth);
+            // Stop current search before starting a new one
+            stopAndJoinSearch();
+
+            searchThread = std::thread(search, depth);
 
         }
         else if (line == "eval") {
@@ -639,7 +649,7 @@ int main() {
             std::cout << std::flush;
         }
         else if (line.rfind("stop", 0) == 0) {
-
+            stopAndJoinSearch();
         }
         else if (line == "captures")
         {

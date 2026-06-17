@@ -9,4 +9,7 @@ extern int ply;
 
 extern U64 abNodes;
 
+extern std::atomic_bool stopSearch;
+extern std::atomic_bool searchRunning;
+
 int alphaBeta(int depth, int alpha, int beta);
