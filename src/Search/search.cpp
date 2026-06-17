@@ -1,6 +1,8 @@
 #include "search.h"
 #include "sortLegalMoves.h"
 
+U64 abNodes = 0;
+
 void search(int depth)
 {
 	Move moveList[256] = { 0 };
@@ -24,6 +26,10 @@ void search(int depth)
 		int alpha = MINF;
 		int beta = INF;
 
+		abNodes = 0;
+
+		auto searchStart = std::chrono::high_resolution_clock::now();
+
 		for (int i = 0; i < moveCount; i++)
 		{
 			if (moveList[i] == 0) continue;
@@ -42,10 +48,15 @@ void search(int depth)
 			}
 		}
 
+		auto searchEnd = std::chrono::high_resolution_clock::now();
+
+		auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(searchEnd - searchStart).count();
+
 		if (currentBestScore > 99950)
 		{
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
+				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" pv " << moveToUCI(currentBest) <<
 				std::endl << std::flush;
 		}
@@ -53,6 +64,7 @@ void search(int depth)
 		{
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
+				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" pv " << moveToUCI(currentBest) <<
 				std::endl << std::flush;
 		}
@@ -60,6 +72,7 @@ void search(int depth)
 		{
 			std::cout << "info depth " << iterativeDepth <<
 				" score cp " << currentBestScore <<
+				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" pv " << moveToUCI(currentBest) <<
 				std::endl << std::flush;
 		}

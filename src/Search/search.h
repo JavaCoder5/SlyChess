@@ -4,6 +4,7 @@
 #include <src/Search/alphaBeta.h>
 #include <src/uci/moveToUci.h>
 #include "movePVToFront.h"
+#include <chrono> 
 
 extern bool turn;
 

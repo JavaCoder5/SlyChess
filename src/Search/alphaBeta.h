@@ -7,4 +7,6 @@
 
 extern int ply;
 
+extern U64 abNodes;
+
 int alphaBeta(int depth, int alpha, int beta);
