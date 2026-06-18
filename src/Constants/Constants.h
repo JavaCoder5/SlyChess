@@ -4,6 +4,8 @@
 using U64 = unsigned long long;
 using Move = unsigned short;
 
+enum searchMode {searchForDepth, searchForTimeControl, searchForSetTime};
+
 // Compact undo information per move (no full snapshots)
 struct UndoInfo {
     Move move;

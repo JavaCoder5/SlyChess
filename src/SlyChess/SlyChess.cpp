@@ -23,6 +23,7 @@
 #include <src/Movegen/generateLegalCaptures.h>
 #include <src/Search/stopAndJoinSearch.h>
 #include <thread>
+#include <src/timeManagement/searchTime.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -70,6 +71,7 @@ std::atomic_bool searchRunning = false;
 std::atomic_bool stopSearch = false;
 
 std::thread searchThread;
+std::thread timerThread;
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -330,16 +332,80 @@ int main() {
             std::stringstream ss(line);
             std::string token;
             ss >> token; // "go"
+            int whiteTime = 0;
+            int blackTime = 0;
+            int whiteIncrement = 0;
+            int blackIncrement = 0;
+            int goTime = 0;
+            int goMode = searchForDepth;
 
-            if (ss >> token && token == "depth")
-                ss >> depth;
-            else if (token == "infinite")
-                depth = INF;
+            while (ss >> token)
+            {
+                if (token == "depth")
+                {
+                    ss >> depth;
+                    break;
+                }
+                else if (token == "infinite")
+                {
+                    depth = INF;
+                    break;
+                }
+                else if (token == "wtime")
+                {
+                    ss >> token; // the amount of time
+                    whiteTime = stoi(token);
+                    goMode = searchForTimeControl;
+                }
+                else if (token == "btime")
+                {
+                    ss >> token; // the amount of time
+                    blackTime = stoi(token);
+                    goMode = searchForTimeControl;
+                }
+                else if (token == "winc")
+                {
+                    ss >> token; // increment
+                    whiteIncrement = stoi(token);
+                    goMode = searchForTimeControl;
+                }
+                else if (token == "binc")
+                {
+                    ss >> token;
+                    blackIncrement = stoi(token);
+                    goMode = searchForTimeControl;
+                }
+                else if (token == "movetime")
+                {
+                    ss >> token;
+                    goTime = stoi(token);
+                    goMode = searchForSetTime;
+                }
+                else
+                {
+                    break;
+                }
+            }
 
             // Stop current search before starting a new one
             stopAndJoinSearch();
 
-            searchThread = std::thread(search, depth);
+            if (goMode == searchForDepth)
+            {
+                searchThread = std::thread(search, depth);
+            }
+            else if (goMode == searchForTimeControl)
+            {
+                searchThread = std::thread(search, INF);
+                timerThread = std::thread(searchTimeControl, whiteTime, blackTime, whiteIncrement, blackIncrement);
+                timerThread.detach();
+            }
+            else if (goMode == searchForSetTime)
+            {
+                searchThread = std::thread(search, INF);
+                timerThread = std::thread(searchTime, goTime);
+                timerThread.detach();
+            }
 
         }
         else if (line == "eval") {
