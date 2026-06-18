@@ -30,6 +30,9 @@ void search(int depth)
 		int alpha = MINF;
 		int beta = INF;
 
+		currentBest = moveList[0];
+		currentBestScore = MINF;
+
 		abNodes = 0;
 
 		auto searchStart = std::chrono::high_resolution_clock::now();

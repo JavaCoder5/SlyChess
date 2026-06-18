@@ -41,7 +41,7 @@ int quiescence(int alpha, int beta)
 		if (score > alpha)
 			alpha = score;
 		if (score >= beta)
-			return bestScore;
+			return beta;
 	}
-	return bestScore;
+	return alpha;
 }
