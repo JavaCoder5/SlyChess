@@ -24,7 +24,8 @@ Move UCIToMove(std::string move)
 
 	if ((turn ? bPawnBB : wPawnBB) & (1ULL << (toSq + (turn ? -8 : 8))))
 		if (~(allPiecesBB) & (1ULL << (toSq)))
-			return (fromSq) | (toSq << 6) | FLAG_EN_PASSANT;
+			if ((turn ? wPawnBB : bPawnBB) & (1ULL << fromSq))
+				return (fromSq) | (toSq << 6) | FLAG_EN_PASSANT;
 
 	return (fromSq) | (toSq << 6);
 }
