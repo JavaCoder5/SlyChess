@@ -1,7 +1,10 @@
 #pragma once
 #include <array>
+#include <cstdint>
 
 using U64 = unsigned long long;
+using I16 = short;
+using U8 = uint8_t;
 using Move = unsigned short;
 
 enum searchMode {searchForDepth, searchForTimeControl, searchForSetTime};
@@ -88,3 +91,30 @@ struct Magic {
 
 const inline U64 whitePromotionMask = 0xFF00000000000000ULL;
 const inline U64 blackPromotionMask = 0x00000000000000FFULL;
+
+struct TTEntry
+{
+    U64  key;
+    Move move;
+    int  score;
+    U8   depth;
+    U8   flag;
+};
+
+constexpr int TT_SIZE = 1 << 20;
+constexpr int TT_MASK = TT_SIZE - 1;
+
+enum Pieces {
+    wPawn,
+    wKnight,
+    wBishop,
+    wRook,
+    wQueen,
+    wKing,
+    bPawn,
+    bKnight,
+    bBishop,
+    bRook,
+    bQueen,
+    bKing
+};

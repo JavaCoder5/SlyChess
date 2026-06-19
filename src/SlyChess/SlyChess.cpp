@@ -24,6 +24,8 @@
 #include <src/Search/stopAndJoinSearch.h>
 #include <thread>
 #include <src/timeManagement/searchTime.h>
+#include <src/zobrist/zobrist.h>
+#include <src/zobrist/computeBaseHash.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -72,6 +74,8 @@ std::atomic_bool stopSearch = false;
 
 std::thread searchThread;
 std::thread timerThread;
+
+TTEntry transposition_table[TT_SIZE];
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -242,6 +246,8 @@ bool setPositionFromFEN(const std::string &fen)
         bKingCastleKRights = castlingField.find('k') != std::string::npos;
 	}
 
+    computeBaseHash();
+
     return true;
 }
 
@@ -253,13 +259,14 @@ int main() {
 
     initBitboardAttacks();
     initSliders();
+    Zobrist::init();
 
     while (std::getline(std::cin, line)) {
 
         if (line == "uci") {
             std::cout << "id name SlyChess\n";
             std::cout << "id author JavaCoder5\n";
-            std::cout << "id version 0.1\n";
+            std::cout << "id version 0.2b\n";
             std::cout << "uciok\n" << std::flush;
         }
         else if (line == "isready") {
