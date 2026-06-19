@@ -77,6 +77,8 @@ std::thread timerThread;
 
 TTEntry transposition_table[TT_SIZE];
 
+U64 boardHash;
+
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
 {
@@ -246,7 +248,7 @@ bool setPositionFromFEN(const std::string &fen)
         bKingCastleKRights = castlingField.find('k') != std::string::npos;
 	}
 
-    computeBaseHash();
+    boardHash = computeBaseHash();
 
     return true;
 }
@@ -764,6 +766,10 @@ int main() {
             ss >> square;
 
             std::cout << square << " inverted is " << (8 - (square / 8)) + (square % 8) << std::endl;
+        }
+        else if (line == "hash")
+        {
+            std::cout << "current board hash: " << std::hex << boardHash << std::dec << std::endl << std::flush;
         }
         else if (line == "quit") {
                 break;

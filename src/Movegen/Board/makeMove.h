@@ -1,6 +1,7 @@
 #pragma once
 #include <src/Constants/Constants.h>
 #include <iostream>
+#include <src/zobrist/zobrist.h>
 
 extern U64 wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB;
 
@@ -18,5 +19,7 @@ extern bool turn;
 extern bool wKingCastleKRights, wKingCastleQRights;
 
 extern bool bKingCastleKRights, bKingCastleQRights;
+
+extern U64 boardHash;
 
 void makeMove(Move m);
