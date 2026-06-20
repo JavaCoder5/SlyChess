@@ -18,5 +18,13 @@ std::string moveToUCI(Move move)
 	default: promotionSuffix = '\0'; break; // No promotion
 	}
 
-	return std::string() + fromFile + fromRank + toFile + toRank + promotionSuffix;
+	if (promotionSuffix != 0)
+	{
+		return std::string() + fromFile + fromRank + toFile + toRank + promotionSuffix;
+	} 
+	else
+	{
+		return std::string() + fromFile + fromRank + toFile + toRank;
+	}
+	
 }
