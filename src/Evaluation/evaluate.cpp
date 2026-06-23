@@ -59,7 +59,7 @@ constexpr int openingKingPST[64] =
 	-20, -30, -30, -40, -40, -30, -30, -20,
 	-10, -20, -20, -20, -20, -20, -20, -10,
 	 20,  20,   0,   0,   0,   0,  20,  20,
-	 20,  30,  10,   0,   0,  10,  30,  20
+	 20,  30,  10, -30,   0, -50,  40,  20
 };
 
 inline int invertPST(const int (*pst)[64], int index)
@@ -188,7 +188,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bPawnBBCopy);
 
-		blackScore += 100 + invertPST(&openingPawnPST, 63 - sq);
+		blackScore += 100 + openingPawnPST[sq];
 
 		U64 bitMask = (1ULL << sq);
 		bPawnBBCopy = bPawnBBCopy & ~bitMask; // Clear the least significant bit
@@ -208,7 +208,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bKnightBBCopy);
 
-		blackScore += 300 + invertPST(&knightPST, 63 - sq);
+		blackScore += 300 + knightPST[sq];
 
 		U64 bitMask = (1ULL << sq);
 		bKnightBBCopy = bKnightBBCopy & ~bitMask; // Clear the least significant bit
@@ -229,7 +229,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bBishopBBCopy);
 
-		blackScore += 320 + invertPST(&bishopPST, 63 - sq);
+		blackScore += 320 + bishopPST[sq];
 
 		U64 bitMask = (1ULL << sq);
 		bBishopBBCopy = bBishopBBCopy & ~bitMask; // Clear the least significant bit
@@ -248,7 +248,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bKingBBCopy);
 
-		blackScore += 20000 + invertPST(&openingKingPST, 63 - sq);
+		blackScore += 20000 + openingKingPST[sq];
 
 		U64 bitMask = (1ULL << sq);
 		bKingBBCopy = bKingBBCopy & ~bitMask; // Clear the least significant bit
@@ -289,16 +289,14 @@ int evaluate()
 
 	scoreBefore = whiteScore;
 
-	// Development bonus
-	U64 whiteDevelopment = (wKnightBB | wBishopBB) & ~whiteDevelopmentMask;
-	whiteScore += mask_popcount(whiteDevelopment) * 10;
-
-	scoreAfter = whiteScore;
 	
 
 	std::cout << "development score: " << scoreAfter - scoreBefore << std::endl;
 	*/
 
+	// Development bonus
+	U64 whiteDevelopment = (wKnightBB | wBishopBB) & ~whiteDevelopmentMask;
+	whiteScore += mask_popcount(whiteDevelopment) * 10;
 
 	U64 blackDevelopment = (bKnightBB | bBishopBB) & ~blackDevelopmentMask;
 	blackScore += mask_popcount(blackDevelopment) * 10;
@@ -313,7 +311,7 @@ int evaluate()
 	}
 	else if (whiteIsKingCastled)
 	{
-		whiteScore += 80;
+		whiteScore += 40;
 	}
 
 	U64 blackIsKingCastled = (bKingBB & blackKingKCastlingMask);
@@ -325,7 +323,7 @@ int evaluate()
 	}
 	else if (blackIsKingCastled)
 	{
-		blackScore += 80;
+		blackScore += 40;
 	}
 
 	//std::cout << whiteScore << " " << blackScore << std::endl;
