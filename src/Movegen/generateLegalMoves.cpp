@@ -57,7 +57,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
 
             unmakeMove(m);
 
-            generatePseudoLegalMoves(&opp, sideToMove, &oppSize);
+            generatePseudoLegalMoves(&opp, !sideToMove, &oppSize);
 
             makeMove(m);
 
@@ -99,7 +99,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
 
             unmakeMove(m);
 
-            generatePseudoLegalMoves(&opp, sideToMove, &oppSize);
+            generatePseudoLegalMoves(&opp, !sideToMove, &oppSize);
 
             makeMove(m);
 
