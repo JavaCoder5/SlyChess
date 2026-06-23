@@ -5,7 +5,7 @@ int alphaBeta(int depth, int alpha, int beta)
 	abNodes++;
 
 	if (abNodes & 8192 && stopSearch)
-		return 0;
+		return INF;
 
 	if (depth == 0) return quiescence(alpha, beta);
 	//if (depth == 0) return evaluate();
@@ -50,6 +50,10 @@ int alphaBeta(int depth, int alpha, int beta)
 		int score = -alphaBeta(depth - 1, -beta, -alpha);
 		ply--;
 		unmakeMove(moveList[i]);
+
+		if ((score == MINF) && stopSearch)
+			return INF;
+
 		if (score > bestScore)
 		{
 			bestScore = score;

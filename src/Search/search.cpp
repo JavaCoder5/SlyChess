@@ -41,13 +41,13 @@ void search(int depth)
 		{
 			if (moveList[i] == 0) continue;
 
-			if (stopSearch) break;
-
 			makeMove(moveList[i]);
 			ply++;
 			int score = -alphaBeta(iterativeDepth - 1, -beta, -alpha);
 			ply--;
 			unmakeMove(moveList[i]);
+
+			if ((score == MINF) && stopSearch) break;
 
 			if (score > alpha)
 			{
