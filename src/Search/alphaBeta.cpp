@@ -4,10 +4,11 @@ int alphaBeta(int depth, int alpha, int beta)
 {
 	abNodes++;
 
+	if (depth == 0) return quiescence(alpha, beta);
+
 	if (abNodes & 8192 && stopSearch)
 		return INF;
 
-	if (depth == 0) return quiescence(alpha, beta);
 	//if (depth == 0) return evaluate();
 	int bestScore = MINF;
 
