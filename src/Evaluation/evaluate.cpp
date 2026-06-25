@@ -307,11 +307,11 @@ int evaluate()
 
 	if (whiteIsKingCastled && whiteIsRookCastled)
 	{
-		whiteScore += 80;
+		whiteScore += 20;
 	}
 	else if (whiteIsKingCastled)
 	{
-		whiteScore += 40;
+		whiteScore += 10;
 	}
 
 	U64 blackIsKingCastled = (bKingBB & blackKingKCastlingMask);
@@ -319,11 +319,11 @@ int evaluate()
 
 	if (blackIsKingCastled && blackIsRookCastled)
 	{
-		blackScore += 80;
+		blackScore += 20;
 	}
 	else if (blackIsKingCastled)
 	{
-		blackScore += 40;
+		blackScore += 10;
 	}
 
 	//std::cout << whiteScore << " " << blackScore << std::endl;
