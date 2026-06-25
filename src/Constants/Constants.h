@@ -88,3 +88,5 @@ struct Magic {
 
 const inline U64 whitePromotionMask = 0xFF00000000000000ULL;
 const inline U64 blackPromotionMask = 0x00000000000000FFULL;
+
+inline constexpr int MAX_DEPTH = 99;

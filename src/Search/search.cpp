@@ -3,6 +3,22 @@
 
 U64 abNodes = 0;
 
+Move pvTable[MAX_DEPTH][MAX_DEPTH];
+int pvLength[MAX_DEPTH];
+
+static std::string getPV()
+{
+	std::string pv = "";
+
+	for (int i = 0; i < pvLength[0]; i++)
+	{
+		pv += moveToUCI(pvTable[0][i]);
+		pv += " ";
+	}
+
+	return pv;
+}
+
 void search(int depth)
 {
 	searchRunning = true;
@@ -26,6 +42,8 @@ void search(int depth)
 	for (int iterativeDepth = 1; iterativeDepth <= depth; iterativeDepth++)
 	{
 		if (stopSearch) break;
+
+		pvLength[0] = 0;
 
 		int alpha = MINF;
 		int beta = INF;
@@ -51,6 +69,15 @@ void search(int depth)
 				alpha = score;
 				currentBestScore = score;
 				currentBest = moveList[i];
+
+				// Only PV nodes update the PV table
+				pvTable[ply][ply] = moveList[i];
+
+				// Copy child PV
+				for (int j = ply + 1; j < pvLength[ply + 1]; j++)
+					pvTable[ply][j] = pvTable[ply + 1][j];
+
+				pvLength[ply] = pvLength[ply + 1];
 			}
 		}
 
@@ -63,7 +90,7 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
-				" pv " << moveToUCI(currentBest) <<
+				" pv " << getPV() <<
 				std::endl << std::flush;
 		}
 		else if (currentBestScore < -99950)
@@ -71,7 +98,7 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
-				" pv " << moveToUCI(currentBest) <<
+				" pv " << getPV() <<
 				std::endl << std::flush;
 		}
 		else
@@ -79,7 +106,7 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score cp " << currentBestScore <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
-				" pv " << moveToUCI(currentBest) <<
+				" pv " << getPV() <<
 				std::endl << std::flush;
 		}
 

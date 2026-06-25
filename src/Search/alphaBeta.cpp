@@ -19,6 +19,13 @@ int alphaBeta(int depth, int alpha, int beta)
 
 	sortLegalMoves(&moveList, turn, moveCount);
 
+	Move pvMove = pvTable[ply][ply];
+
+	if (pvMove != 0)
+	{
+		movePVToFront(&moveList, moveCount, pvMove);
+	}
+
 	if (moveCount == 0)
 	{
 		// Generate opponent pseudo-legal moves and see if any captures the king
@@ -58,6 +65,18 @@ int alphaBeta(int depth, int alpha, int beta)
 		if (score > bestScore)
 		{
 			bestScore = score;
+
+			// Only PV nodes update the PV table
+			if (score > alpha && score < beta) {
+				pvTable[ply][ply] = moveList[i];
+
+				// Copy child PV
+				for (int j = ply + 1; j < pvLength[ply + 1]; j++)
+					pvTable[ply][j] = pvTable[ply + 1][j];
+
+				pvLength[ply] = pvLength[ply + 1];
+			}
+
 			if (score > alpha)
 				alpha = score;
 		}

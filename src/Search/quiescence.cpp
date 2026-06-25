@@ -6,6 +6,9 @@ int quiescence(int alpha, int beta)
 
 	int standPat = evaluate();
 
+	// Leaf PV length
+	pvLength[ply] = ply;
+
 	if (standPat >= beta)
 		return beta;
 	if (standPat > alpha)
@@ -43,5 +46,6 @@ int quiescence(int alpha, int beta)
 		if (score >= beta)
 			return beta;
 	}
+
 	return alpha;
 }
