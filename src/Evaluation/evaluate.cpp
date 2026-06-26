@@ -62,6 +62,18 @@ constexpr int openingKingPST[64] =
 	 20,  30,  10, -30,   0, -50,  40,  20
 };
 
+constexpr int endgameKingPST[64] =
+{
+	-50,-40,-30,-30,-30,-30,-40,-50,
+	-40,-20,  0,  0,  0,  0,-20,-40,
+	-30,  0, 10, 10, 10, 10,  0,-30,
+	-30,  5, 10, 15, 15, 10,  5,-30,
+	-30,  0, 10, 15, 15, 10,  0,-30,
+	-30,  5, 10, 10, 10, 10,  5,-30,
+	-40,-20,  0,  5,  5,  0,-20,-40,
+	-50,-40,-20,-30,-30,-20,-40,-50
+};
+
 inline int invertPST(const int (*pst)[64], int index)
 {
 	return (*pst)[index ^ 56];
@@ -147,7 +159,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(wKingBBCopy);
 
-		whiteScore += 20000 + openingKingPST[sq ^ 56];
+		whiteScore += 20000 + ((mask_popcount(allPiecesBB) > 8) ? openingKingPST[sq ^ 56] : endgameKingPST[sq ^ 56]);
 
 		U64 bitMask = (1ULL << sq);
 		wKingBBCopy = wKingBBCopy & ~bitMask; // Clear the least significant bit
@@ -248,7 +260,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bKingBBCopy);
 
-		blackScore += 20000 + openingKingPST[sq];
+		blackScore += 20000 + ((mask_popcount(allPiecesBB) > 8) ? openingKingPST[sq] : endgameKingPST[sq]);
 
 		U64 bitMask = (1ULL << sq);
 		bKingBBCopy = bKingBBCopy & ~bitMask; // Clear the least significant bit
