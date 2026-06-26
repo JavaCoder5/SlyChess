@@ -42,9 +42,11 @@ int alphaBeta(int depth, int alpha, int beta)
 		}
 		if (kingAttacked)
 		{
+			pvLength[ply] = ply;
 			return MATE + ply;
 		}
 		else {
+			pvLength[ply] = ply;
 			return 0;
 		}
 	}
