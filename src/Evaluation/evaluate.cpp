@@ -26,6 +26,18 @@ constexpr int openingPawnPST[64] =
 	 0,  0,  0,  0,  0,  0,  0,  0
 };
 
+constexpr int endgamePawnPST[64] =
+{
+	0,  0,  0,  0,  0,  0,  0,  0,
+	70, 90, 90, 90, 90, 90, 90, 70,
+	50, 75, 75, 75, 75, 75, 75, 50,
+	40, 50, 50, 50, 50, 50, 50, 40,
+	25, 25, 25, 25, 25, 25, 25, 25,
+	15, 20, 20, 20, 20, 20, 20, 15,
+	 0,  0,  0,  0,  0,  0,  0,  0,
+	 0,  0,  0,  0,  0,  0,  0,  0
+};
+
 constexpr int knightPST[64] =
 {
     -50,-40,-30,-30,-30,-30,-40,-50,
@@ -97,7 +109,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(wPawnBBCopy);
 
-		whiteScore += 100 + openingPawnPST[sq ^ 56];
+		whiteScore += 100 + ((mask_popcount(allPiecesBB) > 8) ? openingPawnPST[sq ^ 56] : endgamePawnPST[sq ^ 56]);
 
 		U64 bitMask = (1ULL << sq);
 		wPawnBBCopy = wPawnBBCopy & ~bitMask; // Clear the least significant bit
@@ -200,7 +212,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bPawnBBCopy);
 
-		blackScore += 100 + openingPawnPST[sq];
+		blackScore += 100 + ((mask_popcount(allPiecesBB) > 8) ? openingPawnPST[sq] : endgamePawnPST[sq]);
 
 		U64 bitMask = (1ULL << sq);
 		bPawnBBCopy = bPawnBBCopy & ~bitMask; // Clear the least significant bit
