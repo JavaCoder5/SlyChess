@@ -109,7 +109,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(wPawnBBCopy);
 
-		whiteScore += 100 + ((mask_popcount(allPiecesBB) > 8) ? openingPawnPST[sq ^ 56] : endgamePawnPST[sq ^ 56]);
+		whiteScore += 100 + ((mask_popcount(allPiecesBB & ~(wPawnBB & bPawnBB)) > 8) ? openingPawnPST[sq ^ 56] : endgamePawnPST[sq ^ 56]);
 
 		U64 bitMask = (1ULL << sq);
 		wPawnBBCopy = wPawnBBCopy & ~bitMask; // Clear the least significant bit
@@ -171,7 +171,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(wKingBBCopy);
 
-		whiteScore += 20000 + ((mask_popcount(allPiecesBB) > 8) ? openingKingPST[sq ^ 56] : endgameKingPST[sq ^ 56]);
+		whiteScore += 20000 + ((mask_popcount(allPiecesBB & ~(wPawnBB & bPawnBB)) > 8) ? openingKingPST[sq ^ 56] : endgameKingPST[sq ^ 56]);
 
 		U64 bitMask = (1ULL << sq);
 		wKingBBCopy = wKingBBCopy & ~bitMask; // Clear the least significant bit
@@ -212,7 +212,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bPawnBBCopy);
 
-		blackScore += 100 + ((mask_popcount(allPiecesBB) > 8) ? openingPawnPST[sq] : endgamePawnPST[sq]);
+		blackScore += 100 + ((mask_popcount(allPiecesBB & ~(wPawnBB & bPawnBB)) > 8) ? openingPawnPST[sq] : endgamePawnPST[sq]);
 
 		U64 bitMask = (1ULL << sq);
 		bPawnBBCopy = bPawnBBCopy & ~bitMask; // Clear the least significant bit
@@ -272,7 +272,7 @@ int evaluate()
 	{
 		int sq = count_trailing_zeros(bKingBBCopy);
 
-		blackScore += 20000 + ((mask_popcount(allPiecesBB) > 8) ? openingKingPST[sq] : endgameKingPST[sq]);
+		blackScore += 20000 + ((mask_popcount(allPiecesBB & ~(wPawnBB & bPawnBB)) > 8) ? openingKingPST[sq] : endgameKingPST[sq]);
 
 		U64 bitMask = (1ULL << sq);
 		bKingBBCopy = bKingBBCopy & ~bitMask; // Clear the least significant bit
