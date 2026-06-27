@@ -350,6 +350,27 @@ int evaluate()
 		blackScore += 10;
 	}
 
+	// Doubled pawn penalty
+	U64 fileMask = 0x0101010101010101; // A-rank
+
+	// For white
+	for (int i = 0; i < 8; i++)
+	{
+		U64 pawnsOnFile = wPawnBB & (fileMask << i);
+		if (pawnsOnFile < 2) continue;
+		else if (pawnsOnFile == 2) whiteScore -= (mask_popcount(pawnsOnFile) * 15);
+		else whiteScore -= (mask_popcount(pawnsOnFile) * 32);
+	}
+
+	// For black
+	for (int i = 0; i < 8; i++)
+	{
+		U64 pawnsOnFile = bPawnBB & (fileMask << i);
+		if (pawnsOnFile < 2) continue;
+		else if (pawnsOnFile == 2) blackScore -= (mask_popcount(pawnsOnFile) * 15);
+		else blackScore -= (mask_popcount(pawnsOnFile) * 32);
+	}
+
 	//std::cout << whiteScore << " " << blackScore << std::endl;
 
 	int eval = whiteScore - blackScore;
