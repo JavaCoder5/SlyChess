@@ -55,9 +55,33 @@ int alphaBeta(int depth, int alpha, int beta)
 	{
 		if (moveList[i] == 0) continue;
 
+		int score;
+
+		int reduction = 0;
+
 		makeMove(moveList[i]);
 		ply++;
-		int score = -alphaBeta(depth - 1, -beta, -alpha);
+
+		if (depth >= 3
+			&& i >= 3
+			&& !wasCapture()
+			&& !wasPromotion())
+		{
+			reduction = 1;
+		}
+
+		if (reduction > 0)
+		{
+			score = -alphaBeta(depth - 1 - reduction, -alpha - 1, -alpha);
+
+			if (score > alpha)
+				score = -alphaBeta(depth - 1, -beta, -alpha);
+		}
+		else
+		{
+			score = -alphaBeta(depth - 1, -beta, -alpha);
+		}
+
 		ply--;
 		unmakeMove(moveList[i]);
 

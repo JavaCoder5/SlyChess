@@ -5,6 +5,8 @@
 #include "sortLegalMoves.h"
 #include "quiescence.h"
 #include "movePVToFront.h"
+#include <src/Helpers/wasCapture.h>
+#include <src/Helpers/wasPromotion.h>
 
 extern int ply;
 
