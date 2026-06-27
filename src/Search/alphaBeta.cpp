@@ -1,5 +1,28 @@
 #include "alphaBeta.h"
 
+bool hasNullMoved;
+
+struct NullMoveUndoInfo {
+	int prevEPSquare;
+};
+
+NullMoveUndoInfo beforeNullMove;
+
+void makeNullMove()
+{
+	turn = !turn;
+	beforeNullMove.prevEPSquare = enPassantSquare;
+	enPassantSquare = -1;
+	hasNullMoved = true;
+}
+
+void unmakeNullMove()
+{
+	turn = !turn;
+	enPassantSquare = beforeNullMove.prevEPSquare;
+	hasNullMoved = false;
+}
+
 int alphaBeta(int depth, int alpha, int beta)
 {
 	abNodes++;
@@ -58,6 +81,24 @@ int alphaBeta(int depth, int alpha, int beta)
 		int score;
 
 		int reduction = 0;
+
+		// Null move pruning
+		bool isPvNode = (beta - alpha > 1);
+
+		if (depth >= 3 &&
+			(turn ? (wKnightBB | wBishopBB | wRookBB | wQueenBB) : (bKnightBB | bBishopBB | bRookBB | bQueenBB)) &&
+			!hasNullMoved &&
+			!isPvNode)
+		{
+			int R = 2;
+
+			makeNullMove();
+			int nullScore = -alphaBeta(depth - 1 - R, -beta, -beta + 1);
+			unmakeNullMove();
+
+			if (nullScore >= beta)
+				return beta;
+		}
 
 		makeMove(moveList[i]);
 		ply++;
