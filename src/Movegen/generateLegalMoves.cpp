@@ -74,7 +74,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
                     Move om = opp[j];
                     if (om == 0) break;
                     int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0x60;
+                    U64 castleMask = 0x70;
                     U64 otoMask = 1ULL << oto;
                     if (otoMask & castleMask) { kingAttacked = true; break; }
                 }
@@ -85,7 +85,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
                     Move om = opp[j];
                     if (om == 0) break;
                     int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0x6000000000000000;
+                    U64 castleMask = 0x7000000000000000;
                     U64 otoMask = 1ULL << oto;
                     if (otoMask & castleMask) { kingAttacked = true; break; }
                 }
@@ -116,7 +116,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
                     Move om = opp[j];
                     if (om == 0) break;
                     int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0xC;
+                    U64 castleMask = 0x1C;
                     U64 otoMask = 1ULL << oto;
                     if (otoMask & castleMask) { kingAttacked = true; break; }
                 }
@@ -127,7 +127,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
                     Move om = opp[j];
                     if (om == 0) break;
                     int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0xC00000000000000;
+                    U64 castleMask = 0x1C00000000000000;
                     U64 otoMask = 1ULL << oto;
                     if (otoMask & castleMask) { kingAttacked = true; break; }
                 }
