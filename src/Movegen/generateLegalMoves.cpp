@@ -49,7 +49,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
             if (oto == kingSq) { kingAttacked = true; break; }
         }
 
-        if (m & FLAG_CASTLE_K)
+        if ((m & 0xF000) == FLAG_CASTLE_K)
         {
             // Check if the king is currently in check
             Move opp[256] = { 0 };
@@ -91,7 +91,7 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
                 }
             }
         }
-        else if (m & FLAG_CASTLE_Q)
+        else if ((m & 0xF000) == FLAG_CASTLE_Q)
         {
             // Check if the king is currently in check
             Move opp[256] = { 0 };

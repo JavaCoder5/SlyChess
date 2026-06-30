@@ -268,7 +268,7 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size)
 
         if ((sideToMove ? wKingCastleQRights : bKingCastleQRights))
         {
-            if ((sideToMove ? (allPiecesBB & 0xC) == 0 : (allPiecesBB & 0xC00000000000000) == 0)) // Squares between king and rook must be empty
+            if ((sideToMove ? (allPiecesBB & 0xE) == 0 : (allPiecesBB & 0xE00000000000000) == 0)) // Squares between king and rook must be empty
             {
                 (*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 2 : 58) << 6) | FLAG_CASTLE_Q;
                 movesPointer++;
