@@ -85,12 +85,12 @@ int alphaBeta(int depth, int alpha, int beta)
 		// Null move pruning
 		bool isPvNode = (beta - alpha > 1);
 
-		if (depth >= 3 &&
+		if (depth >= 4 &&
 			(turn ? (wKnightBB | wBishopBB | wRookBB | wQueenBB) : (bKnightBB | bBishopBB | bRookBB | bQueenBB)) &&
 			!hasNullMoved &&
 			!isPvNode)
 		{
-			int R = 2;
+			int R = 3;
 
 			makeNullMove();
 			int nullScore = -alphaBeta(depth - 1 - R, -beta, -beta + 1);
