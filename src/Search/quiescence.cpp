@@ -11,6 +11,12 @@ int quiescence(int alpha, int beta)
 
 	if (standPat >= beta)
 		return beta;
+
+	int delta = 900;
+
+	if (standPat < alpha - delta)
+		return alpha;
+	
 	if (standPat > alpha)
 		alpha = standPat;
 
