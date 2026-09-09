@@ -5,278 +5,198 @@ void generatePseudoLegalMoves(Move(*moves)[], bool sideToMove, int *size)
     U64 ownPieces = sideToMove ? allWhiteBB : allBlackBB;
     U64 opponentPieces = sideToMove ? allBlackBB : allWhiteBB;
 
-    int movesPointer = 0; // Index to track where to insert moves in the moves array
+    Move *baseOut = &(*moves)[0];
+    Move *out = baseOut;
 
-    // Generate moves for each piece type and add to the moves array
-    // Generate pawn moves:
+    // Precompute side-dependent references to avoid branching in hot loops
+    const U64 *pawnAttacks = sideToMove ? wPawnAttacks : bPawnAttacks;
+    const U64 *pawnCaptures = sideToMove ? wPawnCaptures : bPawnCaptures;
+    const U64 promoMask = sideToMove ? whitePromotionMask : blackPromotionMask;
 
+    // Generate pawn moves
     U64 pawnBBCopy = sideToMove ? wPawnBB : bPawnBB;
-    while (true)
+    while (pawnBBCopy)
     {
-        // Get the square of the least significant pawn bit and generate moves for that pawn
-        int sq = count_trailing_zeros(pawnBBCopy);
-        if (sq == 64) break; // No more pawns
+        U64 lsbPawn = pawnBBCopy & (0 - pawnBBCopy);
+        int sq = count_trailing_zeros(lsbPawn);
+        pawnBBCopy ^= lsbPawn; // clear LSB
 
-        // Create a copy of the attack moves for this pawn, which will be modified as moves are generated
-        U64 attacksCopy = sideToMove ? wPawnAttacks[sq] & ~allPiecesBB : bPawnAttacks[sq] & ~allPiecesBB;
-
-        U64 attacksCompareMask = sideToMove ? wPawnAttacks[sq] : bPawnAttacks[sq];
+        U64 attacksCopy = pawnAttacks[sq] & ~allPiecesBB;
+        U64 attacksCompareMask = pawnAttacks[sq];
         if (attacksCompareMask != attacksCopy)
         {
-            // If the current attacksCopy differs from the original attack mask, 
-            // we should remove the double-push move even if it doesn't exist in attacksCopy, 
-            // because the double-push move is only legal if the square in front of the pawn is empty.
-
-    		attacksCopy = attacksCopy & ~(1ULL << (sq + (sideToMove ? 16 : -16))); // Remove the double-push move if it exists
+            int dpSq = sq + (sideToMove ? 16 : -16);
+            if (dpSq >= 0 && dpSq < 64)
+                attacksCopy &= ~(1ULL << dpSq);
         }
 
-        while (true)
+        // promotions (non-capture)
+        U64 promotionMoves = attacksCopy & promoMask;
+        while (promotionMoves)
         {
-			// Handle promotions for non-capture moves
-            U64 promotionMoves = attacksCopy & (sideToMove ? whitePromotionMask : blackPromotionMask);
-            while (promotionMoves)
-            {
-                int promotosq = count_trailing_zeros(promotionMoves);
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_Q;
-                movesPointer++;
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_R;
-                movesPointer++;
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_N;
-                movesPointer++;
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_B;
-                movesPointer++;
-
-                U64 bitMask = (1ULL << promotosq);
-                attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
-                promotionMoves = promotionMoves & ~bitMask; // Clear the least significant bit
-            }
-
-            // Handle regular non-capture moves
-            int tosq = count_trailing_zeros(attacksCopy); // Get the least significant bit index for the next move (usually there is only one, but there can be two if the pawn has not moved)
-            if (tosq == 64) break; // No more moves for this pawn
-
-            (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
-
-            movesPointer++;
-
-            U64 bitMask = (1ULL << tosq);
-            attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
+            U64 lsb = promotionMoves & (0 - promotionMoves);
+            int promotosq = count_trailing_zeros(lsb);
+            Move baseMove = (Move)(sq | (promotosq << 6));
+            *out++ = baseMove | FLAG_PROMOTION_Q;
+            *out++ = baseMove | FLAG_PROMOTION_R;
+            *out++ = baseMove | FLAG_PROMOTION_N;
+            *out++ = baseMove | FLAG_PROMOTION_B;
+            promotionMoves ^= lsb;
+            attacksCopy ^= lsb;
         }
 
-        // Generate captures for this pawn
+        // non-capture moves
+        while (attacksCopy)
+        {
+            U64 lsb = attacksCopy & (0 - attacksCopy);
+            int tosq = count_trailing_zeros(lsb);
+            *out++ = (Move)(sq | (tosq << 6));
+            attacksCopy ^= lsb;
+        }
 
-        U64 captureMask = sideToMove ? wPawnCaptures[sq] : bPawnCaptures[sq];
+        // captures
+        U64 captureMask = pawnCaptures[sq];
 
-        // En-passant: if an en-passant target square exists and this pawn can capture there,
-        // ensure the captured pawn is present on the expected square and add the EP move.
-        if (enPassantSquare >= 0 && enPassantSquare < 64) {
+        // en-passant
+        if (enPassantSquare >= 0 && enPassantSquare < 64)
+        {
             U64 epBit = 1ULL << enPassantSquare;
-            if (captureMask & epBit) {
+            if (captureMask & epBit)
+            {
                 int capturedPawnSq = sideToMove ? (enPassantSquare - 8) : (enPassantSquare + 8);
-                if (capturedPawnSq >= 0 && capturedPawnSq < 64) {
-                    if ((opponentPieces >> capturedPawnSq) & 1ULL) {
-                        (*moves)[movesPointer] = 0x0 | (sq) | (enPassantSquare << 6) | FLAG_EN_PASSANT;
-                        movesPointer++;
+                if (capturedPawnSq >= 0 && capturedPawnSq < 64)
+                {
+                    if ((opponentPieces >> capturedPawnSq) & 1ULL)
+                    {
+                        *out++ = (Move)(sq | (enPassantSquare << 6) | FLAG_EN_PASSANT);
                     }
                 }
             }
         }
 
         U64 capturesCopy = captureMask & opponentPieces;
-
-        while (true)
+        // promotion captures
+        U64 promotionCaptures = capturesCopy & promoMask;
+        while (promotionCaptures)
         {
-            // Handle promotion captures
-
-            U64 promotionCaptures = capturesCopy & (sideToMove ? whitePromotionMask : blackPromotionMask);
-            while (promotionCaptures)
-            {
-                int promotosq = count_trailing_zeros(promotionCaptures);
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_Q;
-                movesPointer++;
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_R;
-                movesPointer++;
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_N;
-                movesPointer++;
-                (*moves)[movesPointer] = 0x0 | (sq) | (promotosq << 6) | FLAG_PROMOTION_B;
-                movesPointer++;
-
-                U64 bitMask = (1ULL << promotosq);
-                capturesCopy = capturesCopy & ~bitMask; // Clear the least significant bit
-                promotionCaptures = promotionCaptures & ~bitMask; // Clear the least significant bit
-            }
-
-            int tosq = count_trailing_zeros(capturesCopy);
-            if (tosq == 64) break; // No more captures for this pawn
-
-            (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
-
-            movesPointer++;
-
-            U64 bitMask = (1ULL << tosq);
-            capturesCopy = capturesCopy & ~bitMask; // Clear the least significant bit
+            U64 lsb = promotionCaptures & (0 - promotionCaptures);
+            int promotosq = count_trailing_zeros(lsb);
+            Move baseMove = (Move)(sq | (promotosq << 6));
+            *out++ = baseMove | FLAG_PROMOTION_Q;
+            *out++ = baseMove | FLAG_PROMOTION_R;
+            *out++ = baseMove | FLAG_PROMOTION_N;
+            *out++ = baseMove | FLAG_PROMOTION_B;
+            promotionCaptures ^= lsb;
+            capturesCopy ^= lsb;
         }
 
-
-        // Clear the bit for this pawn and continue to the next one
-
-        U64 bitMask = (1ULL << sq);
-        pawnBBCopy = pawnBBCopy & ~bitMask; // Clear the most significant bit
-
+        while (capturesCopy)
+        {
+            U64 lsb = capturesCopy & (0 - capturesCopy);
+            int tosq = count_trailing_zeros(lsb);
+            *out++ = (Move)(sq | (tosq << 6));
+            capturesCopy ^= lsb;
+        }
     }
 
+    // Knights
     U64 knightBBCopy = sideToMove ? wKnightBB : bKnightBB;
-
-    // Generate knight moves
-    while (true)
+    while (knightBBCopy)
     {
-		int sq = count_trailing_zeros(knightBBCopy);
-        if (sq == 64) break; // No more knights
+        U64 lsb = knightBBCopy & (0 - knightBBCopy);
+        int sq = count_trailing_zeros(lsb);
+        knightBBCopy ^= lsb;
 
-		U64 attacksCopy = knightAttacks[sq] & ~ownPieces;
-
-        while (true)
+        U64 attacksCopy = knightAttacks[sq] & ~ownPieces;
+        while (attacksCopy)
         {
-			int tosq = count_trailing_zeros(attacksCopy);
-			if (tosq == 64) break; // No more moves for this knight
-
-			(*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
-			movesPointer++;
-
-			U64 bitMask = (1ULL << tosq);
-			attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
+            U64 l = attacksCopy & (0 - attacksCopy);
+            int tosq = count_trailing_zeros(l);
+            *out++ = (Move)(sq | (tosq << 6));
+            attacksCopy ^= l;
         }
-
-        U64 bitMask = (1ULL << sq);
-		knightBBCopy = knightBBCopy & ~bitMask; // Clear the least significant bit
-
     }
 
-    // Generate bishop moves
-	U64 bishopBBCopy = sideToMove ? wBishopBB : bBishopBB;
-
-    while (true)
+    // Bishop
+    U64 bishopBBCopy = sideToMove ? wBishopBB : bBishopBB;
+    while (bishopBBCopy)
     {
-		int sq = count_trailing_zeros(bishopBBCopy);
-		if (sq == 64) break; // No more bishops
+        U64 lsb = bishopBBCopy & (0 - bishopBBCopy);
+        int sq = count_trailing_zeros(lsb);
+        bishopBBCopy ^= lsb;
 
         U64 attacksCopy = lookupBishopAttacks(sq, allPiecesBB) & ~ownPieces;
-
-        while (true)
+        while (attacksCopy)
         {
-			int tosq = count_trailing_zeros(attacksCopy);
-			if (tosq == 64) break; // No more moves for this bishop
-
-            (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
-            movesPointer++;
-
-			U64 bitMask = (1ULL << tosq);
-			attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
+            U64 l = attacksCopy & (0 - attacksCopy);
+            int tosq = count_trailing_zeros(l);
+            *out++ = (Move)(sq | (tosq << 6));
+            attacksCopy ^= l;
         }
-
-		U64 bitmask = (1ULL << sq);
-		bishopBBCopy = bishopBBCopy & ~bitmask; // Clear the least significant bit
-
     }
 
-    // Generate rook moves
+    // Rook
     U64 rookBBCopy = sideToMove ? wRookBB : bRookBB;
-
-    while (true)
+    while (rookBBCopy)
     {
-        int sq = count_trailing_zeros(rookBBCopy);
-        if (sq == 64) break; // No more rooks
+        U64 lsb = rookBBCopy & (0 - rookBBCopy);
+        int sq = count_trailing_zeros(lsb);
+        rookBBCopy ^= lsb;
 
         U64 attacksCopy = lookupRookAttacks(sq, allPiecesBB) & ~ownPieces;
-
-        while (true)
+        while (attacksCopy)
         {
-            int tosq = count_trailing_zeros(attacksCopy);
-            if (tosq == 64) break; // No more moves for this rook
-
-            (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
-            movesPointer++;
-
-            U64 bitMask = (1ULL << tosq);
-            attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
+            U64 l = attacksCopy & (0 - attacksCopy);
+            int tosq = count_trailing_zeros(l);
+            *out++ = (Move)(sq | (tosq << 6));
+            attacksCopy ^= l;
         }
-
-        U64 bitmask = (1ULL << sq);
-        rookBBCopy = rookBBCopy & ~bitmask; // Clear the least significant bit
-
     }
 
-    // Generate queen moves
-	U64 queenBBCopy = sideToMove ? wQueenBB : bQueenBB;
-
-    while (true)
+    // Queen
+    U64 queenBBCopy = sideToMove ? wQueenBB : bQueenBB;
+    while (queenBBCopy)
     {
-        int sq = count_trailing_zeros(queenBBCopy);
-        if (sq == 64) break; // No more queens
+        U64 lsb = queenBBCopy & (0 - queenBBCopy);
+        int sq = count_trailing_zeros(lsb);
+        queenBBCopy ^= lsb;
 
         U64 attacksCopy = lookupQueenAttacks(sq, allPiecesBB) & ~ownPieces;
-
-        while (true)
+        while (attacksCopy)
         {
-            int tosq = count_trailing_zeros(attacksCopy);
-            if (tosq == 64) break; // No more moves for this queen
-
-            (*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
-            movesPointer++;
-
-            U64 bitMask = (1ULL << tosq);
-            attacksCopy = attacksCopy & ~bitMask; // Clear the least significant bit
+            U64 l = attacksCopy & (0 - attacksCopy);
+            int tosq = count_trailing_zeros(l);
+            *out++ = (Move)(sq | (tosq << 6));
+            attacksCopy ^= l;
         }
-
-        U64 bitmask = (1ULL << sq);
-        queenBBCopy = queenBBCopy & ~bitmask; // Clear the least significant bit
-
     }
 
-    // Generate king moves
-	U64 kingBBCopy = sideToMove ? wKingBB : bKingBB;
-
-    // Note: No loop is required since there can only ever be one king per side
-
-	int sq = count_trailing_zeros(kingBBCopy);
-
-	U64 kAttacksCopy = kingAttacks[sq] & ~ownPieces;
-
-    while (true)
+    // King (single)
+    U64 kingBBCopy = sideToMove ? wKingBB : bKingBB;
+    int kingSq = count_trailing_zeros(kingBBCopy);
+    if (kingSq != 64)
     {
-		int tosq = count_trailing_zeros(kAttacksCopy);
-		if (tosq == 64) break; // No more moves for this king
-
-		(*moves)[movesPointer] = 0x0 | (sq) | (tosq << 6);
-		movesPointer++;
-
-		U64 bitMask = (1ULL << tosq);
-		kAttacksCopy = kAttacksCopy & ~bitMask; // Clear the least significant bit
-    }
-
-	// Generate castling moves (not fully legal until we check for checks, but we can generate them here)
-    if (sq != 64)
-    {
-        if ((sideToMove ? wKingCastleKRights : bKingCastleKRights))
+        U64 kAttacksCopy = kingAttacks[kingSq] & ~ownPieces;
+        while (kAttacksCopy)
         {
-            if ((sideToMove ? (allPiecesBB & 0x60) == 0 : (allPiecesBB & 0x6000000000000000) == 0)) // Squares between king and rook must be empty
-            {
-                (*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 6 : 62) << 6) | FLAG_CASTLE_K;
-                movesPointer++;
-            }
+            U64 l = kAttacksCopy & (0 - kAttacksCopy);
+            int tosq = count_trailing_zeros(l);
+            *out++ = (Move)(kingSq | (tosq << 6));
+            kAttacksCopy ^= l;
         }
 
-        if ((sideToMove ? wKingCastleQRights : bKingCastleQRights))
+        // Castling
+        if (sideToMove ? wKingCastleKRights : bKingCastleKRights)
         {
-            if ((sideToMove ? (allPiecesBB & 0xE) == 0 : (allPiecesBB & 0xE00000000000000) == 0)) // Squares between king and rook must be empty
-            {
-                (*moves)[movesPointer] = 0x0 | (sq) | ((sideToMove ? 2 : 58) << 6) | FLAG_CASTLE_Q;
-                movesPointer++;
-            }
+            if ((sideToMove ? (allPiecesBB & 0x60) == 0 : (allPiecesBB & 0x6000000000000000) == 0))
+                *out++ = (Move)(kingSq | ((sideToMove ? 6 : 62) << 6) | FLAG_CASTLE_K);
+        }
+        if (sideToMove ? wKingCastleQRights : bKingCastleQRights)
+        {
+            if ((sideToMove ? (allPiecesBB & 0xE) == 0 : (allPiecesBB & 0xE00000000000000) == 0))
+                *out++ = (Move)(kingSq | ((sideToMove ? 2 : 58) << 6) | FLAG_CASTLE_Q);
         }
     }
-    
 
-	*size = movesPointer; // Set the output size to the number of moves generated
-
+    *size = (int)(out - baseOut);
 }
