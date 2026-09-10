@@ -1,4 +1,5 @@
 #include "generateLegalMoves.h"
+#include "isSquareAttacked.h"
 
 // Generate legal moves for sideToMove by filtering pseudo-legal moves.
 // Uses makeMove/unmakeMove to test each move for king safety without allocations.
@@ -14,6 +15,10 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
         Move m = temp[i];
         if (m == 0) break;
 
+        // Snapshot king square before making the move (needed for castling checks)
+        int kingFrom = -1;
+        if (sideToMove == WHITE) kingFrom = count_trailing_zeros(wKingBB);
+        else kingFrom = count_trailing_zeros(bKingBB);
 
         // Make the move
         /*
@@ -36,102 +41,29 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
             kingSq = count_trailing_zeros(bKingBB);
         }
 
-        // Generate opponent pseudo-legal moves and see if any captures the king
-        Move opp[256] = { 0 };
-        int oppSize = 0;
-        generatePseudoLegalMoves(&opp, !sideToMove, &oppSize);
-
-        bool kingAttacked = false;
-        for (int j = 0; j < oppSize; ++j) {
-            Move om = opp[j];
-            if (om == 0) break;
-            int oto = (om >> 6) & 0x3F;
-            if (oto == kingSq) { kingAttacked = true; break; }
-        }
+        // Fast attack test using bitboards instead of generating opponent moves
+        bool kingAttacked = isSquareAttacked(kingSq, !sideToMove);
 
         if ((m & 0xF000) == FLAG_CASTLE_K)
         {
-            // Check if the king is currently in check
-            Move opp[256] = { 0 };
-            int oppSize = 0;
-
+            // Verify castling legality: king must not be in check before, through, or after the move
+            // kingFrom was captured above before makeMove
             unmakeMove(m);
-
-            generatePseudoLegalMoves(&opp, !sideToMove, &oppSize);
-
+            if (isSquareAttacked(kingFrom, !sideToMove)) kingAttacked = true;
             makeMove(m);
-
-            for (int j = 0; j < oppSize; ++j) {
-                Move om = opp[j];
-                if (om == 0) break;
-                int oto = (om >> 6) & 0x3F;
-                if (oto == kingSq) { kingAttacked = true; break; }
-            }
-
-            if (!turn)
-            {
-                for (int j = 0; j < oppSize; ++j) {
-                    Move om = opp[j];
-                    if (om == 0) break;
-                    int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0x70;
-                    U64 otoMask = 1ULL << oto;
-                    if (otoMask & castleMask) { kingAttacked = true; break; }
-                }
-            }
-            else
-            {
-                for (int j = 0; j < oppSize; ++j) {
-                    Move om = opp[j];
-                    if (om == 0) break;
-                    int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0x7000000000000000;
-                    U64 otoMask = 1ULL << oto;
-                    if (otoMask & castleMask) { kingAttacked = true; break; }
-                }
-            }
+            int throughSq = sideToMove == WHITE ? 5 : 61; // f1 / f8
+            int toSq = sideToMove == WHITE ? 6 : 62; // g1 / g8
+            if (isSquareAttacked(throughSq, !sideToMove) || isSquareAttacked(toSq, !sideToMove)) kingAttacked = true;
         }
         else if ((m & 0xF000) == FLAG_CASTLE_Q)
         {
-            // Check if the king is currently in check
-            Move opp[256] = { 0 };
-            int oppSize = 0;
-
+            // Verify castling legality: king must not be in check before, through, or after the move
             unmakeMove(m);
-
-            generatePseudoLegalMoves(&opp, !sideToMove, &oppSize);
-
+            if (isSquareAttacked(kingFrom, !sideToMove)) kingAttacked = true;
             makeMove(m);
-
-            for (int j = 0; j < oppSize; ++j) {
-                Move om = opp[j];
-                if (om == 0) break;
-                int oto = (om >> 6) & 0x3F;
-                if (oto == kingSq) { kingAttacked = true; break; }
-            }
-
-            if (!turn)
-            {
-                for (int j = 0; j < oppSize; ++j) {
-                    Move om = opp[j];
-                    if (om == 0) break;
-                    int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0x1C;
-                    U64 otoMask = 1ULL << oto;
-                    if (otoMask & castleMask) { kingAttacked = true; break; }
-                }
-            }
-            else
-            {
-                for (int j = 0; j < oppSize; ++j) {
-                    Move om = opp[j];
-                    if (om == 0) break;
-                    int oto = (om >> 6) & 0x3F;
-                    U64 castleMask = 0x1C00000000000000;
-                    U64 otoMask = 1ULL << oto;
-                    if (otoMask & castleMask) { kingAttacked = true; break; }
-                }
-            }
+            int throughSq = sideToMove == WHITE ? 3 : 59; // d1 / d8
+            int toSq = sideToMove == WHITE ? 2 : 58; // c1 / c8
+            if (isSquareAttacked(throughSq, !sideToMove) || isSquareAttacked(toSq, !sideToMove)) kingAttacked = true;
         }
 
         // Unmake the move
