@@ -1,4 +1,5 @@
 #include "generateLegalCaptures.h"
+#include "isSquareAttacked.h"
 
 void generateLegalCaptures(Move(*moves)[], bool sideToMove, int* size)
 {
@@ -24,18 +25,8 @@ void generateLegalCaptures(Move(*moves)[], bool sideToMove, int* size)
             kingSq = count_trailing_zeros(bKingBB);
         }
 
-        // Generate opponent pseudo-legal moves and see if any captures the king
-        Move opp[256] = { 0 };
-        int oppSize = 0;
-        generatePseudoLegalMoves(&opp, !sideToMove, &oppSize);
-
-        bool kingAttacked = false;
-        for (int j = 0; j < oppSize; ++j) {
-            Move om = opp[j];
-            if (om == 0) break;
-            int oto = (om >> 6) & 0x3F;
-            if (oto == kingSq) { kingAttacked = true; break; }
-        }
+        // Fast attack test using bitboards instead of generating opponent moves
+        bool kingAttacked = isSquareAttacked(kingSq, !sideToMove);
 
         // Unmake the move
         unmakeMove(m);
