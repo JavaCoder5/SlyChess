@@ -4,15 +4,15 @@
 #if defined(_MSC_VER)
 // MSVC Compiler Setup
 #include <intrin.h>
+// Prefer TZCNT when available: it maps directly to a single instruction that returns 64 for zero inputs.
 #pragma intrinsic(_BitScanForward64)
+#pragma intrinsic(_tzcnt_u64)
 
 inline int count_trailing_zeros(U64 mask) {
-    unsigned long index;
-    // _BitScanForward64 returns 0 if the mask is 0, which mimics undefined behavior.
-    if (_BitScanForward64(&index, mask)) {
-        return static_cast<int>(index);
-    }
-    return 64; // Default safe fallback if mask is empty
+    // Use TZCNT which returns 64 for a zero input on x86_64 CPUs supporting BMI1.
+    // Fall back to BitScanForward if needed by checking mask==0 to preserve semantics.
+    if (mask == 0) return 64;
+    return static_cast<int>(_tzcnt_u64(mask));
 }
 
 #pragma intrinsic(__popcnt64)
