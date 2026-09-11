@@ -11,6 +11,8 @@ extern U64 allPiecesBB;
 
 extern bool turn;
 
+extern bool wKingCastleKRights, wKingCastleQRights, bKingCastleKRights, bKingCastleQRights;
+
 inline int invertPST(const int (*pst)[64], int index);
 
 int evaluate();

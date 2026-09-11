@@ -20,8 +20,8 @@ constexpr int openingPawnPST[64] =
 	90, 90, 90, 90, 90, 90, 90, 90,
 	10, 10, 20, 62, 62, 20, 10, 10,
 	 5,  5, 10, 50, 50, 10,  5,  5,
-	 0,  0,  0, 35, 40,  0,  0,  0,
-	 5, -5,-10, 30, 10,-20,-10,  5,
+	 0,  0, 10, 35, 43,  0,  0,  0,
+	 5, -5,  0, 30, 10,-20,-10,  5,
 	10, 10, 10,-25,-25, 15, 15, 15,
 	 0,  0,  0,  0,  0,  0,  0,  0
 };
@@ -40,14 +40,14 @@ constexpr int endgamePawnPST[64] =
 
 constexpr int knightPST[64] =
 {
-    -50,-40,-30,-30,-30,-30,-40,-50,
-	-40,-20,  0,  0,  0,  0,-20,-40,
-	-30,  0, 25, 25, 25, 25,  0,-30,
-	-30,  5, 25, 40, 40, 25,  5,-30,
-	-30,  0, 25, 40, 40, 25,  0,-30,
-	-30,  5, 25, 25, 25, 25,  5,-30,
-	-40,-20,  0,  5,  5,  0,-20,-40,
-	-50,-40,-20,-30,-30,-20,-40,-50
+    -50,-37,-30,-30,-30,-30,-37,-50,
+	-37,-20,  0,  0,  0,  0,-20,-37,
+	-30,  0, 18, 18, 18, 18,  0,-30,
+	-30,  5, 18, 32, 32, 18,  5,-30,
+	-30,  0, 18, 32, 32, 18,  0,-30,
+	-30,  5, 18, 18, 18, 18,  5,-30,
+	-37,-20,  0,  5,  5,  0,-20,-37,
+	-50,-37,-20,-30,-30,-20,-37,-50
 };
 
 constexpr int bishopPST[64] =
@@ -71,7 +71,7 @@ constexpr int openingKingPST[64] =
 	-20, -30, -30, -40, -40, -30, -30, -20,
 	-10, -20, -20, -20, -20, -20, -20, -10,
 	 20,  20,   0,   0,   0,   0,  20,  20,
-	 20,  30,  10, -30,   0, -50,  40,  20
+	 20,  30,  15, -30,   0, -50,  40,  20
 };
 
 constexpr int endgameKingPST[64] =
@@ -326,6 +326,28 @@ int evaluate()
 	blackScore += mask_popcount(blackDevelopment) * 10;
 
 	// Castling bonus (for now only kingside castling)
+
+	if (wKingCastleKRights)
+	{
+		whiteScore += 20;
+	}
+	if (wKingCastleQRights)
+	{
+		whiteScore += 15;
+	}
+
+	if (bKingCastleKRights)
+	{
+		blackScore += 20;
+	}
+	if (bKingCastleQRights)
+	{
+		blackScore += 15;
+	}
+
+	// Legacy code
+
+	/*
 	U64 whiteIsKingCastled = (wKingBB & whiteKingKCastlingMask);
 	U64 whiteIsRookCastled = (wRookBB & whiteRookKCastlingMask);
 
@@ -349,6 +371,8 @@ int evaluate()
 	{
 		blackScore += 10;
 	}
+
+	*/
 
 	// Doubled pawn penalty
 	U64 fileMask = 0x0101010101010101; // A-rank
