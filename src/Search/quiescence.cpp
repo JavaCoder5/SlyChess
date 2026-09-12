@@ -14,6 +14,11 @@ int quiescence(int alpha, int beta)
 
 	int delta = 650;
 
+	int promoDelta = 1600;
+
+	if (((turn) ? (wPawnBB & 0xFF000000000000) : (bPawnBB & 0xFF00))) // If there are pawns on the 7th rank for white or 2nd rank for black
+		delta = promoDelta;
+
 	if (standPat < alpha - delta)
 		return alpha;
 	
