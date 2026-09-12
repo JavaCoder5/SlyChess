@@ -259,7 +259,7 @@ int main() {
         if (line == "uci") {
             std::cout << "id name SlyChess\n";
             std::cout << "id author JavaCoder5\n";
-            std::cout << "id version 0.1\n";
+            std::cout << "id version 0.2\n";
             std::cout << "uciok\n" << std::flush;
         }
         else if (line == "isready") {
