@@ -266,7 +266,9 @@ int main() {
             std::cout << "readyok\n" << std::flush;
         }
         else if (line == "ucinewgame") {
-            
+            stopAndJoinSearch();
+
+            setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         }
         else if (line.rfind("position", 0) == 0) {
             // Always stop any running search before changing the board
@@ -383,7 +385,9 @@ int main() {
                 }
                 else
                 {
-                    break;
+					std::cerr << "Unknown 'go' parameter: " << token << std::endl;
+                    
+                    continue;
                 }
             }
 
