@@ -380,19 +380,19 @@ int evaluate()
 	// For white
 	for (int i = 0; i < 8; i++)
 	{
-		U64 pawnsOnFile = wPawnBB & (fileMask << i);
+		int pawnsOnFile = mask_popcount(wPawnBB & (fileMask << i));
 		if (pawnsOnFile < 2) continue;
-		else if (pawnsOnFile == 2) whiteScore -= (mask_popcount(pawnsOnFile) * 15);
-		else whiteScore -= (mask_popcount(pawnsOnFile) * 32);
+		else if (pawnsOnFile == 2) whiteScore -= (pawnsOnFile * 15);
+		else whiteScore -= (pawnsOnFile * 32);
 	}
 
 	// For black
 	for (int i = 0; i < 8; i++)
 	{
-		U64 pawnsOnFile = bPawnBB & (fileMask << i);
+		int pawnsOnFile = mask_popcount(bPawnBB & (fileMask << i));
 		if (pawnsOnFile < 2) continue;
-		else if (pawnsOnFile == 2) blackScore -= (mask_popcount(pawnsOnFile) * 15);
-		else blackScore -= (mask_popcount(pawnsOnFile) * 32);
+		else if (pawnsOnFile == 2) blackScore -= (pawnsOnFile * 15);
+		else blackScore -= (pawnsOnFile * 32);
 	}
 
 	//std::cout << whiteScore << " " << blackScore << std::endl;
