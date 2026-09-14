@@ -283,6 +283,9 @@ int main() {
             std::string sub;
             if (!(ss >> sub)) continue;
 
+            while (historyTop > 0)
+                history[--historyTop] = UndoInfo(); // reset to default to avoid residual data and memory overflows
+
             if (sub == "startpos") {
                 // set to standard start position
                 setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
