@@ -24,6 +24,7 @@
 #include <src/Search/stopAndJoinSearch.h>
 #include <thread>
 #include <src/timeManagement/searchTime.h>
+#include <src/misc/printMutex.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -257,13 +258,17 @@ int main() {
     while (std::getline(std::cin, line)) {
 
         if (line == "uci") {
+            lockPrintMutex();
             std::cout << "id name SlyChess\n";
             std::cout << "id author JavaCoder5\n";
             std::cout << "id version 1.0a\n";
             std::cout << "uciok\n" << std::flush;
+            unlockPrintMutex();
         }
         else if (line == "isready") {
+            lockPrintMutex();
             std::cout << "readyok\n" << std::flush;
+            unlockPrintMutex();
         }
         else if (line == "ucinewgame") {
             stopAndJoinSearch();

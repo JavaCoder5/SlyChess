@@ -35,7 +35,9 @@ void search(int depth)
 
 	if (moveCount == 0)
 	{
+		lockPrintMutex();
 		std::cout << "bestmove 0000" << std::endl << std::flush;
+		unlockPrintMutex();
 		return;
 	}
 
@@ -87,34 +89,42 @@ void search(int depth)
 
 		if (currentBestScore > 99950)
 		{
+			lockPrintMutex();
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
+			unlockPrintMutex();
 		}
 		else if (currentBestScore < -99950)
 		{
+			lockPrintMutex();
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
+			unlockPrintMutex();
 		}
 		else
 		{
+			lockPrintMutex();
 			std::cout << "info depth " << iterativeDepth <<
 				" score cp " << currentBestScore <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
+			unlockPrintMutex();
 		}
 
 		movePVToFront(&moveList, moveCount, currentBest);
 
 	}
 
+	lockPrintMutex();
 	std::cout << "bestmove " << moveToUCI(currentBest) << std::endl << std::flush;
+	unlockPrintMutex();
 
 	searchRunning = false;
 }
