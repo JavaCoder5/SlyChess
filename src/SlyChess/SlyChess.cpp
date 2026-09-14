@@ -770,6 +770,12 @@ int main() {
         else if (line == "quit") {
                 break;
         }
+        else {
+            lockPrintMutex();
+            std::cerr << "Unknown command: " << line << "\n" << std::flush;
+            unlockPrintMutex();
+        }
+
     }
 
     return 0;
