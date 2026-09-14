@@ -93,6 +93,7 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" nodes " << abNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();
@@ -103,6 +104,7 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" nodes " << abNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();
@@ -113,6 +115,7 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score cp " << currentBestScore <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" nodes " << abNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();
