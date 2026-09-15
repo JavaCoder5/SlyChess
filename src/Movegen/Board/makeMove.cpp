@@ -124,6 +124,17 @@ void makeMove(Move m)
 
     // Identify and move the piece from 'fromSq' to 'toSq'
     if (whiteToMove) {
+
+		// Update castling rights if a rook is captured on its starting square
+        if (toSq == 63)
+        {
+            if (bRookBB & (1ULL << 63)) bKingCastleKRights = false;
+        }
+        else if (toSq == 56)
+        {
+            if (bRookBB & (1ULL << 56)) bKingCastleQRights = false;
+        }
+
         // White to move: check which white piece is on fromSq
         if (wPawnBB & fromBit) {
             // Promotion handling
@@ -215,6 +226,17 @@ void makeMove(Move m)
         }
     }
     else {
+
+        // Update castling rights if a rook is captured on its starting square
+        if (toSq == 0)
+        {
+            if (wRookBB & 1ULL) wKingCastleQRights = false;
+        }
+        else if (toSq == 7)
+        {
+            if (wRookBB & (1ULL << 7)) wKingCastleKRights = false;
+        }
+
         // Black to move
         if (bPawnBB & fromBit) {
             if (flags == FLAG_PROMOTION_Q || flags == FLAG_PROMOTION_R || flags == FLAG_PROMOTION_B || flags == FLAG_PROMOTION_N) {
