@@ -2,61 +2,76 @@
 
 int quiescence(int alpha, int beta)
 {
-	int bestScore = MINF;
+    // Leaf PV length
+    pvLength[ply] = ply;
 
-	int standPat = evaluate();
+    int standPat = evaluate();
 
-	// Leaf PV length
-	pvLength[ply] = ply;
+    if (standPat >= beta)
+        return beta;
 
-	if (standPat >= beta)
-		return beta;
+	bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
 
-	int delta = 650;
+    if (!isInCheck)
+    {
+        int delta = 650;
+        int promoDelta = 1600;
+        if ((turn ? (wPawnBB & 0xFF000000000000) : (bPawnBB & 0xFF00)))
+            delta = promoDelta;
 
-	int promoDelta = 1600;
+        if (standPat < alpha - delta)
+            return alpha;
+    }
 
-	if (((turn) ? (wPawnBB & 0xFF000000000000) : (bPawnBB & 0xFF00))) // If there are pawns on the 7th rank for white or 2nd rank for black
-		delta = promoDelta;
+    if (standPat > alpha)
+        alpha = standPat;
 
-	if (standPat < alpha - delta)
-		return alpha;
-	
-	if (standPat > alpha)
-		alpha = standPat;
+    Move moveList[256] = { 0 };
+    int moveCount = 0;
 
-	Move moveList[256] = { 0 };
-	int moveCount = 0;
+    generateLegalCaptures(&moveList, turn, &moveCount);
 
-	generateLegalCaptures(&moveList, turn, &moveCount);
+    if (moveCount == 0)
+        return standPat; // Avoids redundant evaluate() call
 
-	sortLegalMoves(&moveList, turn, moveCount);
+    sortLegalMoves(&moveList, turn, moveCount);
 
-	if (moveCount == 0)
-	{
-		return evaluate();
-	}
+    int bestScore = standPat; // Track the best score properly
 
-	for (int i = 0; i < moveCount; i++)
-	{
-		if (moveList[i] == 0) continue;
+    for (int i = 0; i < moveCount; i++)
+    {
+        if (moveList[i] == 0) continue;
 
-		makeMove(moveList[i]);
-		int score = -quiescence(-beta, -alpha);
-		unmakeMove(moveList[i]);
-		/*
-		if (score > bestScore)
-		{
-			bestScore = score;
-			if (score > alpha)
-				alpha = score;
-		}
-		*/
-		if (score > alpha)
-			alpha = score;
-		if (score >= beta)
-			return beta;
-	}
+        makeMove(moveList[i]);
+        ++ply;
+        int score = -quiescence(-beta, -alpha);
+        --ply;
+        unmakeMove(moveList[i]);
 
-	return alpha;
+        if (score > bestScore)
+        {
+            bestScore = score;
+
+            if (score > alpha)
+            {
+                alpha = score;
+                
+                // Only PV nodes update the PV table
+                if (score < beta) {
+                    pvTable[ply][ply] = moveList[i];
+
+                    // Copy child PV
+                    for (int j = ply + 1; j < pvLength[ply + 1]; j++)
+                        pvTable[ply][j] = pvTable[ply + 1][j];
+
+                    pvLength[ply] = pvLength[ply + 1];
+                }
+            }
+        }
+
+        if (score >= beta)
+            return beta; // Fail-high beta cutoff
+    }
+
+    return bestScore;
 }
