@@ -85,10 +85,13 @@ int alphaBeta(int depth, int alpha, int beta)
 		// Null move pruning
 		bool isPvNode = (beta - alpha > 1);
 
+		bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
+
 		if (depth >= 4 &&
 			(turn ? (wKnightBB | wBishopBB | wRookBB | wQueenBB) : (bKnightBB | bBishopBB | bRookBB | bQueenBB)) &&
 			!hasNullMoved &&
-			!isPvNode)
+			!isPvNode &&
+			!isInCheck)
 		{
 			int R = 3;
 
@@ -103,10 +106,13 @@ int alphaBeta(int depth, int alpha, int beta)
 		makeMove(moveList[i]);
 		ply++;
 
+		isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
+
 		if (depth >= 3
 			&& i >= 3
 			&& !wasCapture()
-			&& !wasPromotion())
+			&& !wasPromotion()
+			&& !isInCheck)
 		{
 			//reduction = (i / 2.5) * (depth / 4);
 			reduction = 1;

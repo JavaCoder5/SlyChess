@@ -7,6 +7,7 @@
 #include "movePVToFront.h"
 #include <src/Helpers/wasCapture.h>
 #include <src/Helpers/wasPromotion.h>
+#include <src/Movegen/isSquareAttacked.h>
 
 extern int ply;
 
