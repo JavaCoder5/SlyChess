@@ -11,6 +11,11 @@ void makeMove(Move m)
     U64 fromBit = 1ULL << fromSq;
     U64 toBit = 1ULL << toSq;
 
+    history[historyTop].prev_bKR = bKingCastleKRights;
+    history[historyTop].prev_bQR = bKingCastleQRights;
+    history[historyTop].prev_wKR = wKingCastleKRights;
+    history[historyTop].prev_wQR = wKingCastleQRights;
+
     // Clear en-passant by default; it will be set again on double pawn pushes
     enPassantSquare = -1;
 
@@ -471,11 +476,6 @@ void makeMove(Move m)
     turn = !turn;
 
     boardHash ^= Zobrist::sideToMoveKey;
-
-    history[historyTop].prev_bKR = bKingCastleKRights;
-    history[historyTop].prev_bQR = bKingCastleQRights;
-    history[historyTop].prev_wKR = wKingCastleKRights;
-    history[historyTop].prev_wQR = wKingCastleQRights;
 
     historyTop++;
 }
