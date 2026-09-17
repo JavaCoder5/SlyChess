@@ -19,6 +19,9 @@ static std::string getPV()
 	return pv;
 }
 
+U64 ttHits = 0;
+U64 ttMisses = 0;
+
 void search(int depth)
 {
 	searchRunning = true;
@@ -93,6 +96,8 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" ttHits " << ttHits <<
+				" ttMisses " << ttMisses <<
 				" nodes " << abNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
@@ -106,6 +111,8 @@ void search(int depth)
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" nodes " << abNodes <<
 				" pv " << getPV() <<
+				" ttHits " << ttHits <<
+				" ttMisses " << ttMisses <<
 				std::endl << std::flush;
 			unlockPrintMutex();
 		}
@@ -115,6 +122,8 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score cp " << currentBestScore <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" ttHits " << ttHits <<
+				" ttMisses " << ttMisses <<
 				" nodes " << abNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;

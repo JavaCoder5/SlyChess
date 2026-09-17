@@ -1,25 +1,21 @@
 #pragma once
 #include <src/Constants/Constants.h>
-#include <iostream>
+#include <src/Constants/Macros.h>
 #include <src/zobrist/zobrist.h>
+#include <iostream>
 
 extern U64 wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB;
 
 extern U64 bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB;
 
-extern U64 allWhiteBB, allBlackBB, allPiecesBB;
+extern bool wKingCastleKRights;
+extern bool wKingCastleQRights;
 
-extern UndoInfo history[MAX_UNDO];
-extern int historyTop;
+extern bool bKingCastleKRights;
+extern bool bKingCastleQRights;
 
 extern int enPassantSquare;
 
 extern bool turn;
 
-extern bool wKingCastleKRights, wKingCastleQRights;
-
-extern bool bKingCastleKRights, bKingCastleQRights;
-
-extern U64 boardHash;
-
-void makeMove(Move m);
+U64 computeBaseHash();
