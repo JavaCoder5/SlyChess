@@ -3,6 +3,9 @@
 
 U64 abNodes = 0;
 
+U64 ttHits = 0;
+U64 ttMisses = 0;
+
 void search(int depth)
 {
 	searchRunning = true;
@@ -66,6 +69,8 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" ttHits " << ttHits <<
+				" ttMisses " << ttMisses <<
 				" pv " << moveToUCI(currentBest) <<
 				std::endl << std::flush;
 		}
@@ -74,6 +79,8 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" ttHits " << ttHits <<
+				" ttMisses " << ttMisses <<
 				" pv " << moveToUCI(currentBest) <<
 				std::endl << std::flush;
 		}
@@ -82,6 +89,8 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score cp " << currentBestScore <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
+				" ttHits " << ttHits <<
+				" ttMisses " << ttMisses <<
 				" pv " << moveToUCI(currentBest) <<
 				std::endl << std::flush;
 		}

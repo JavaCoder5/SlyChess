@@ -11,6 +11,35 @@ int alphaBeta(int depth, int alpha, int beta)
 	//if (depth == 0) return evaluate();
 	int bestScore = MINF;
 
+	int ttScore = 0;
+	U8 ttDepth = 0;
+	U8 ttFlag = 0;
+	Move ttMove = 0;
+
+	if (probe_tt(boardHash, ttMove, ttScore, ttDepth, ttFlag))
+	{
+		++ttHits;
+		if (ttDepth >= depth)
+		{
+			if (ttFlag == TT_EXACT)
+			{
+				return ttScore;
+			}
+			if (ttFlag == TT_ALPHA && ttScore <= alpha)
+			{
+				return ttScore;
+			}
+			if (ttFlag == TT_BETA && ttScore >= beta)
+			{
+				return ttScore;
+			}
+		}
+	}
+	else
+	{
+		++ttMisses;
+	}
+
 	Move moveList[256] = { 0 };
 	int moveCount = 0;
 
@@ -40,6 +69,8 @@ int alphaBeta(int depth, int alpha, int beta)
 			return 0;
 		}
 	}
+
+	Move bestMove = 0;
 		
 	for (int i = 0; i < moveCount; i++)
 	{
@@ -53,11 +84,24 @@ int alphaBeta(int depth, int alpha, int beta)
 		if (score > bestScore)
 		{
 			bestScore = score;
+			bestMove = moveList[i];
 			if (score > alpha)
+			{
 				alpha = score;
+
+				if (score >= beta)
+				{
+					write_tt(boardHash, moveList[i], score, depth, TT_BETA);
+					return bestScore;
+				}
+
+				write_tt(boardHash, moveList[i], score, depth, TT_ALPHA);
+			}
 		}
-		if (score >= beta)
-			return bestScore;
+	}
+	if (bestMove != 0)
+	{
+		write_tt(boardHash, bestMove, bestScore, depth, TT_EXACT);
 	}
 	return bestScore;
 }
