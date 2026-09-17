@@ -104,6 +104,10 @@ struct TTEntry
 constexpr int TT_SIZE = 1 << 20;
 constexpr int TT_MASK = TT_SIZE - 1;
 
+#define TT_EXACT 0
+#define TT_ALPHA 1
+#define TT_BETA  2
+
 enum Pieces {
     wPawn,
     wKnight,
