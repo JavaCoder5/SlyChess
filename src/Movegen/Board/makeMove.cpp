@@ -16,12 +16,16 @@ void makeMove(Move m)
     history[historyTop].prev_wKR = wKingCastleKRights;
     history[historyTop].prev_wQR = wKingCastleQRights;
 
+    if (enPassantSquare != -1) {
+        boardHash ^= Zobrist::enpassant[enPassantSquare & 7];
+    }
+
+    history[historyTop].prevEnPassantSquare = enPassantSquare;
+
     // Clear en-passant by default; it will be set again on double pawn pushes
     enPassantSquare = -1;
 
     history[historyTop].wasEnPassant = false;
-
-    history[historyTop].prevEnPassantSquare = enPassantSquare;
 
     bool whiteToMove = turn;
 
@@ -154,11 +158,37 @@ void makeMove(Move m)
 		// Update castling rights if a rook is captured on its starting square
         if (toSq == 63)
         {
-            if (bRookBB & (1ULL << 63)) bKingCastleKRights = false;
+            if (bRookBB & (1ULL << 63))
+            {
+                int cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+                bKingCastleKRights = false;
+                cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+            }
         }
         else if (toSq == 56)
         {
-            if (bRookBB & (1ULL << 56)) bKingCastleQRights = false;
+            if (bRookBB & (1ULL << 56))
+            {
+                int cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+                bKingCastleQRights = false;
+                cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+            }
         }
 
         // White to move: check which white piece is on fromSq
@@ -208,7 +238,7 @@ void makeMove(Move m)
                 int toRank = toSq / 8;
                 if (toRank - fromRank == 2) {
                     enPassantSquare = fromSq + 8;
-                    history[historyTop].prevEnPassantSquare = enPassantSquare;
+                    boardHash ^= Zobrist::enpassant[enPassantSquare & 7];
                 }
             }
         }
@@ -309,13 +339,21 @@ void makeMove(Move m)
                     // king side castling e1->g1: move h1->f1
                     U64 h1 = 1ULL << 7;
                     U64 f1 = 1ULL << 5;
-                    if (wRookBB & h1) { wRookBB &= ~h1; wRookBB |= f1; }
+                    if (wRookBB & h1) {
+                        boardHash ^= Zobrist::psq[wRook][7];
+                        wRookBB &= ~h1; wRookBB |= f1;
+                        boardHash ^= Zobrist::psq[wRook][5];
+                    }
                 }
                 else if (diff == -2) {
                     // queen side castling e1->c1: move a1->d1
                     U64 a1 = 1ULL << 0;
                     U64 d1 = 1ULL << 3;
-                    if (wRookBB & a1) { wRookBB &= ~a1; wRookBB |= d1; }
+                    if (wRookBB & a1) {
+                        boardHash ^= Zobrist::psq[wRook][0];
+                        wRookBB &= ~a1; wRookBB |= d1; 
+                        boardHash ^= Zobrist::psq[wRook][3];
+                    }
                 }
             }
         }
@@ -325,11 +363,37 @@ void makeMove(Move m)
         // Update castling rights if a rook is captured on its starting square
         if (toSq == 0)
         {
-            if (wRookBB & 1ULL) wKingCastleQRights = false;
+            if (wRookBB & 1ULL)
+            {
+                int cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+                wKingCastleQRights = false;
+                cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+            }
         }
         else if (toSq == 7)
         {
-            if (wRookBB & (1ULL << 7)) wKingCastleKRights = false;
+            if (wRookBB & (1ULL << 7))
+            {
+                int cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+                wKingCastleKRights = false;
+                cr = 0 | (wKingCastleKRights ? 1 : 0) |
+                    (wKingCastleQRights ? (1 << 1) : 0) |
+                    (bKingCastleKRights ? (1 << 2) : 0) |
+                    (bKingCastleQRights ? (1 << 3) : 0);
+                boardHash ^= Zobrist::castling[cr];
+            }
         }
 
         // Black to move
@@ -372,7 +436,7 @@ void makeMove(Move m)
                 int toRank = toSq / 8;
                 if (fromRank - toRank == 2) {
                     enPassantSquare = fromSq - 8;
-                    history[historyTop].prevEnPassantSquare = enPassantSquare;
+                    boardHash ^= Zobrist::enpassant[enPassantSquare & 7];
                 }
             }
         }
@@ -445,9 +509,9 @@ void makeMove(Move m)
                 U64 h8 = 1ULL << 63;
                 U64 f8 = 1ULL << 61;
                 if (bRookBB & h8) { 
-                    boardHash ^= Zobrist::psq[wRook][63];
+                    boardHash ^= Zobrist::psq[bRook][63];
                     bRookBB &= ~h8; bRookBB |= f8;
-                    boardHash ^= Zobrist::psq[wRook][61];
+                    boardHash ^= Zobrist::psq[bRook][61];
                     history[historyTop].rookFrom = 63;
                     history[historyTop].rookTo = 61;
                 }
@@ -457,9 +521,9 @@ void makeMove(Move m)
                 U64 a8 = 1ULL << 56;
                 U64 d8 = 1ULL << 59;
                 if (bRookBB & a8) { 
-                    boardHash ^= Zobrist::psq[wRook][56];
+                    boardHash ^= Zobrist::psq[bRook][56];
                     bRookBB &= ~a8; bRookBB |= d8;
-                    boardHash ^= Zobrist::psq[wRook][59];
+                    boardHash ^= Zobrist::psq[bRook][59];
                     history[historyTop].rookFrom = 56;
                     history[historyTop].rookTo = 59;
                     history[historyTop].wasCastle = true;

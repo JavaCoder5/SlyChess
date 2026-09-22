@@ -12,15 +12,23 @@ void makeNullMove()
 {
 	turn = !turn;
 	beforeNullMove.prevEPSquare = enPassantSquare;
+	if (enPassantSquare != -1) {
+		boardHash ^= Zobrist::enpassant[enPassantSquare & 7];
+	}
 	enPassantSquare = -1;
 	hasNullMoved = true;
+	boardHash ^= Zobrist::sideToMoveKey;
 }
 
 void unmakeNullMove()
 {
 	turn = !turn;
 	enPassantSquare = beforeNullMove.prevEPSquare;
+	if (enPassantSquare != -1) {
+		boardHash ^= Zobrist::enpassant[enPassantSquare & 7];
+	}
 	hasNullMoved = false;
+	boardHash ^= Zobrist::sideToMoveKey;
 }
 
 int alphaBeta(int depth, int alpha, int beta)
@@ -45,17 +53,25 @@ int alphaBeta(int depth, int alpha, int beta)
 		++ttHits;
 		if (ttDepth >= depth)
 		{
+			// Adjust mate scores for current ply
+			int correctedScore = ttScore;
+			if (correctedScore <= MATE + 1000) correctedScore = MATE + ttDepth + ply;
+			if (correctedScore >= -MATE - 1000) correctedScore = -MATE - ttDepth - ply;
+
 			if (ttFlag == TT_EXACT)
 			{
-				return ttScore;
+				pvLength[ply] = ply;
+				return correctedScore;
 			}
-			if (ttFlag == TT_ALPHA && ttScore <= alpha)
+			if (ttFlag == TT_ALPHA && correctedScore <= alpha)
 			{
-				return ttScore;
+				pvLength[ply] = ply;
+				return correctedScore;
 			}
-			if (ttFlag == TT_BETA && ttScore >= beta)
+			if (ttFlag == TT_BETA && correctedScore >= beta)
 			{
-				return ttScore;
+				pvLength[ply] = ply;
+				return correctedScore;
 			}
 		}
 	}
@@ -66,7 +82,7 @@ int alphaBeta(int depth, int alpha, int beta)
 
 	Move moveList[256] = { 0 };
 	int moveCount = 0;
-
+	
 	generateLegalMoves(&moveList, turn, &moveCount);
 
 	sortLegalMoves(&moveList, turn, moveCount);
@@ -76,6 +92,11 @@ int alphaBeta(int depth, int alpha, int beta)
 	if (pvMove != 0)
 	{
 		movePVToFront(&moveList, moveCount, pvMove);
+	}
+
+	if (ttMove != 0 && ttMove != pvMove)
+	{
+		movePVToFront(&moveList, moveCount, ttMove);
 	}
 
 	if (moveCount == 0)
@@ -117,7 +138,7 @@ int alphaBeta(int depth, int alpha, int beta)
 		bool isPvNode = (beta - alpha > 1);
 
 		bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
-
+		
 		if (depth >= 4 &&
 			(turn ? (wKnightBB | wBishopBB | wRookBB | wQueenBB) : (bKnightBB | bBishopBB | bRookBB | bQueenBB)) &&
 			!hasNullMoved &&
@@ -131,7 +152,10 @@ int alphaBeta(int depth, int alpha, int beta)
 			unmakeNullMove();
 
 			if (nullScore >= beta)
+			{
+				pvLength[ply] = ply;
 				return beta;
+			}
 		}
 
 		makeMove(moveList[i]);
@@ -174,12 +198,12 @@ int alphaBeta(int depth, int alpha, int beta)
 
 			// Only PV nodes update the PV table
 			if (score > alpha && score < beta) {
-				pvTable[ply][ply] = moveList[i];
+			pvTable[ply][ply] = moveList[i];
 
 				// Copy child PV
 				for (int j = ply + 1; j < pvLength[ply + 1]; j++)
 					pvTable[ply][j] = pvTable[ply + 1][j];
-
+			
 				pvLength[ply] = pvLength[ply + 1];
 			}
 
@@ -197,9 +221,6 @@ int alphaBeta(int depth, int alpha, int beta)
 			}
 		}
 	}
-	if (bestMove != 0)
-	{
-		write_tt(boardHash, bestMove, bestScore, depth, TT_EXACT);
-	}
+	write_tt(boardHash, bestMove, bestScore, depth, TT_EXACT);
 	return bestScore;
 }

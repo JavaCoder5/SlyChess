@@ -110,9 +110,9 @@ void search(int depth)
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" nodes " << abNodes <<
-				" pv " << getPV() <<
 				" ttHits " << ttHits <<
 				" ttMisses " << ttMisses <<
+				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();
 		}

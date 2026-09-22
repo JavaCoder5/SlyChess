@@ -1,4 +1,5 @@
 #include "unmakeMove.h"
+#include <iostream>
 
 void unmakeMove(Move m)
 {
@@ -7,6 +8,11 @@ void unmakeMove(Move m)
 
     // Determine moving side: mover was the side that just moved, which is !turn
     bool moverWhite = !turn;
+
+    if (enPassantSquare != -1)
+    {
+        boardHash ^= Zobrist::enpassant[enPassantSquare & 7];
+    }
 
     int fromSq = m & 0x3F;
     int toSq = (m >> 6) & 0x3F;
@@ -282,6 +288,11 @@ void unmakeMove(Move m)
 
     // Restore previous en-passant and castling rights
     enPassantSquare = ui.prevEnPassantSquare;
+
+    if (enPassantSquare != -1)
+    {
+        boardHash ^= Zobrist::enpassant[enPassantSquare & 7];
+    }
 
     // Update castling zobrist: remove current rights, apply previous rights
     int cr = 0 | (wKingCastleKRights ? 1 : 0) |
