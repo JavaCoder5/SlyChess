@@ -35,6 +35,8 @@ int alphaBeta(int depth, int alpha, int beta)
 {
 	abNodes++;
 
+	int originalAlpha = alpha;
+
 	if (depth <= 0) return quiescence(alpha, beta);
 
 	if (abNodes & 8192 && stopSearch)
@@ -55,8 +57,8 @@ int alphaBeta(int depth, int alpha, int beta)
 		{
 			// Adjust mate scores for current ply
 			int correctedScore = ttScore;
-			if (correctedScore <= MATE + 1000) correctedScore = MATE + ttDepth + ply;
-			if (correctedScore >= -MATE - 1000) correctedScore = -MATE - ttDepth - ply;
+			if (correctedScore <= MATE + 1000) correctedScore += ply;
+			if (correctedScore >= -MATE - 1000) correctedScore -= ply;
 
 			if (ttFlag == TT_EXACT)
 			{
@@ -213,14 +215,37 @@ int alphaBeta(int depth, int alpha, int beta)
 
 				if (score >= beta)
 				{
-					write_tt(boardHash, moveList[i], score, depth, TT_BETA);
+					if (score < MATE + 1000)
+					{
+						write_tt(boardHash, moveList[i], score - ply, depth, TT_BETA);
+					}
+					else if (score > -MATE - 1000)
+					{
+						write_tt(boardHash, moveList[i], score + ply, depth, TT_BETA);
+					}
+					else
+					{
+						write_tt(boardHash, moveList[i], score, depth, TT_BETA);
+					}
 					return bestScore;
 				}
-
-				write_tt(boardHash, moveList[i], score, depth, TT_ALPHA);
 			}
 		}
 	}
-	write_tt(boardHash, bestMove, bestScore, depth, TT_EXACT);
+
+	int TT_FLAG = (originalAlpha < alpha) ? TT_EXACT : TT_ALPHA;
+
+	if (bestScore < MATE + 1000)
+	{
+		write_tt(boardHash, bestMove, bestScore - ply, depth, TT_FLAG);
+	}
+	else if (bestScore > -MATE - 1000)
+	{
+		write_tt(boardHash, bestMove, bestScore + ply, depth, TT_FLAG);
+	}
+	else
+	{
+		write_tt(boardHash, bestMove, bestScore, depth, TT_FLAG);
+	}
 	return bestScore;
 }

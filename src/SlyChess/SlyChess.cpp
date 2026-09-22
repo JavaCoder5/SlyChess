@@ -282,6 +282,14 @@ int main() {
         else if (line == "ucinewgame") {
             stopAndJoinSearch();
 
+            /* Have to clear the transposition table when starting a new game to avoid serious elo loss
+            I'm not sure why this is, probably a bug hidden somewhere
+            Hopefully someday I can figure out why this is, but for now, just clear the TT on new game */
+            for (int i = 0; i < TT_SIZE; ++i)
+            {
+                transposition_table[i] = TTEntry(); // reset to default
+            }
+
             setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         }
         else if (line.rfind("position", 0) == 0) {
