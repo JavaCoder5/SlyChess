@@ -271,6 +271,7 @@ int main() {
             std::cout << "id name SlyChess\n";
             std::cout << "id author JavaCoder5\n";
             std::cout << "id version 1.0a\n";
+			std::cout << "info string TT size: " << (TT_SIZE * sizeof(TTEntry)) / (1024 * 1024) << " MB\n";
             std::cout << "uciok\n" << std::flush;
             unlockPrintMutex();
         }
