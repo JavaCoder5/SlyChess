@@ -24,6 +24,8 @@
 #include <src/Search/stopAndJoinSearch.h>
 #include <thread>
 #include <src/timeManagement/searchTime.h>
+#include <src/zobrist/zobrist.h>
+#include <src/zobrist/computeBaseHash.h>
 #include <src/misc/printMutex.h>
 
 U64 wPawnBB = WPAWN_START;
@@ -73,6 +75,10 @@ std::atomic_bool stopSearch = false;
 
 std::thread searchThread;
 std::thread timerThread;
+
+TTEntry transposition_table[TT_SIZE];
+
+U64 boardHash;
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -243,6 +249,8 @@ bool setPositionFromFEN(const std::string &fen)
         bKingCastleKRights = castlingField.find('k') != std::string::npos;
 	}
 
+    boardHash = computeBaseHash();
+
     return true;
 }
 
@@ -254,6 +262,7 @@ int main() {
 
     initBitboardAttacks();
     initSliders();
+    Zobrist::init();
 
     while (std::getline(std::cin, line)) {
 
@@ -262,6 +271,7 @@ int main() {
             std::cout << "id name SlyChess\n";
             std::cout << "id author JavaCoder5\n";
             std::cout << "id version 1.0a\n";
+			std::cout << "info string TT size: " << (TT_SIZE * sizeof(TTEntry)) / (1024 * 1024) << " MB\n";
             std::cout << "uciok\n" << std::flush;
             unlockPrintMutex();
         }
@@ -272,6 +282,14 @@ int main() {
         }
         else if (line == "ucinewgame") {
             stopAndJoinSearch();
+
+            /* Have to clear the transposition table when starting a new game to avoid serious elo loss
+            I'm not sure why this is, probably a bug hidden somewhere
+            Hopefully someday I can figure out why this is, but for now, just clear the TT on new game */
+            for (int i = 0; i < TT_SIZE; ++i)
+            {
+                transposition_table[i] = TTEntry(); // reset to default
+            }
 
             setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
         }
@@ -769,6 +787,10 @@ int main() {
             ss >> square;
 
             std::cout << square << " inverted is " << (8 - (square / 8)) + (square % 8) << std::endl;
+        }
+        else if (line == "hash")
+        {
+            std::cout << "current board hash: " << std::hex << boardHash << std::dec << std::endl << std::flush;
         }
         else if (line == "quit") {
                 break;

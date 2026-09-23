@@ -4,6 +4,8 @@
 #include <src/Evaluation/evaluate.h>
 #include "sortLegalMoves.h"
 #include "quiescence.h"
+#include <src/transpositionTable/probe_tt.h>
+#include <src/transpositionTable/write_tt.h>
 #include "movePVToFront.h"
 #include <src/Helpers/wasCapture.h>
 #include <src/Helpers/wasPromotion.h>
@@ -15,6 +17,8 @@ extern U64 abNodes;
 
 extern std::atomic_bool stopSearch;
 extern std::atomic_bool searchRunning;
+
+extern U64 ttHits, ttMisses;
 
 extern Move pvTable[MAX_DEPTH][MAX_DEPTH];
 extern int pvLength[MAX_DEPTH];
