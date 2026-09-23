@@ -101,7 +101,7 @@ struct TTEntry
     U8   flag;
 };
 
-constexpr int TT_SIZE = 1 << 20;
+constexpr int TT_SIZE = 1 << 22;
 constexpr int TT_MASK = TT_SIZE - 1;
 
 #define TT_EXACT 0
