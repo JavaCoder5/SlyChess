@@ -7,6 +7,7 @@
 #include <chrono> 
 #include <atomic>
 #include <src/misc/printMutex.h>
+#include <src/repetitionTable/writeRepetitionTable.h>
 
 extern bool turn;
 

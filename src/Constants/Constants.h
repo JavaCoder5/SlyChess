@@ -104,6 +104,15 @@ struct TTEntry
 constexpr int TT_SIZE = 1 << 22;
 constexpr int TT_MASK = TT_SIZE - 1;
 
+struct RepetitionEntry
+{
+    U64 key;
+    bool isOpen;
+};
+
+constexpr int REPETITION_TABLE_SIZE = 1 << 20;
+constexpr int REPETITION_TABLE_MASK = REPETITION_TABLE_SIZE - 1;
+
 #define TT_NONE  0
 #define TT_EXACT 1
 #define TT_ALPHA 2

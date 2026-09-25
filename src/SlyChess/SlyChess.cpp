@@ -78,6 +78,8 @@ std::thread timerThread;
 
 TTEntry transposition_table[TT_SIZE];
 
+RepetitionEntry repetition_table[REPETITION_TABLE_SIZE];
+
 U64 boardHash;
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
@@ -308,6 +310,8 @@ int main() {
                 // set to standard start position
                 setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
+                writeRepetitionTable(boardHash, true); // Update repetition table after setting starting position
+
                 // Check for optional moves following startpos
                 std::string token;
                 if (ss >> token && token == "moves") {
@@ -315,6 +319,7 @@ int main() {
                     while (ss >> mv) {
                         Move m = UCIToMove(mv);
                         if (m != 0) makeMove(m);
+						writeRepetitionTable(boardHash, true); // Update repetition table after every move
                     }
                 }
             }
@@ -343,11 +348,14 @@ int main() {
                         setPositionFromFEN(fenString);
                     }
 
+                    writeRepetitionTable(boardHash, true);
+
                     // If there are extra tokens and the next token is 'moves', apply the moves that follow
                     if (parts.size() > fenTokens && parts[fenTokens] == "moves") {
                         for (size_t i = fenTokens + 1; i < parts.size(); ++i) {
                             Move m = UCIToMove(parts[i]);
                             if (m != 0) makeMove(m);
+                            writeRepetitionTable(boardHash, true); // Update repetition table after every move
                         }
                     }
                 }

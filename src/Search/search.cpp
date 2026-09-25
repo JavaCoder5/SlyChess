@@ -61,11 +61,13 @@ void search(int depth)
 		{
 			if (moveList[i] == 0) continue;
 
+			writeRepetitionTable(boardHash, true);
 			makeMove(moveList[i]);
 			ply++;
 			int score = -alphaBeta(iterativeDepth - 1, -beta, -alpha);
 			ply--;
 			unmakeMove(moveList[i]);
+			clearRepetitionTableEntry(boardHash);
 
 			if ((score == MINF) && stopSearch) break;
 
@@ -131,6 +133,8 @@ void search(int depth)
 		}
 
 		movePVToFront(&moveList, moveCount, currentBest);
+
+		clearRepetitionTableEntry(boardHash);
 
 	}
 

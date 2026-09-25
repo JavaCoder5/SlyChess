@@ -10,6 +10,8 @@
 #include <src/Helpers/wasCapture.h>
 #include <src/Helpers/wasPromotion.h>
 #include <src/Movegen/isSquareAttacked.h>
+#include <src/repetitionTable/isRepetition.h>
+#include <src/repetitionTable/writeRepetitionTable.h>
 
 extern int ply;
 

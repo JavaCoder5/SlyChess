@@ -45,6 +45,12 @@ int alphaBeta(int depth, int alpha, int beta)
 	//if (depth == 0) return evaluate();
 	int bestScore = MINF;
 
+	if (isRepetition(boardHash))
+	{
+		pvLength[ply] = ply;
+		return 0;
+	}
+
 	int ttScore = 0;
 	U8 ttDepth = 0;
 	U8 ttFlag = 0;
@@ -156,9 +162,12 @@ int alphaBeta(int depth, int alpha, int beta)
 			if (nullScore >= beta)
 			{
 				pvLength[ply] = ply;
+				clearRepetitionTableEntry(boardHash);
 				return beta;
 			}
 		}
+
+		writeRepetitionTable(boardHash, true);
 
 		makeMove(moveList[i]);
 		ply++;
@@ -190,6 +199,8 @@ int alphaBeta(int depth, int alpha, int beta)
 		ply--;
 		unmakeMove(moveList[i]);
 
+		clearRepetitionTableEntry(boardHash);
+
 		if ((score == MINF) && stopSearch)
 			return INF;
 
@@ -199,8 +210,8 @@ int alphaBeta(int depth, int alpha, int beta)
 			bestMove = moveList[i];
 
 			// Only PV nodes update the PV table
-			if (score > alpha && score < beta) {
-			pvTable[ply][ply] = moveList[i];
+			if (score > alpha && score < beta && !hasNullMoved) {
+				pvTable[ply][ply] = moveList[i];
 
 				// Copy child PV
 				for (int j = ply + 1; j < pvLength[ply + 1]; j++)
