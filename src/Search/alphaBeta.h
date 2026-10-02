@@ -29,6 +29,7 @@
 #include <src/Movegen/isSquareAttacked.h>
 #include <src/repetitionTable/isRepetition.h>
 #include <src/repetitionTable/writeRepetitionTable.h>
+#include <atomic>
 
 extern int ply;
 
