@@ -44,6 +44,7 @@
 #include <src/zobrist/zobrist.h>
 #include <src/zobrist/computeBaseHash.h>
 #include <src/misc/printMutex.h>
+#include <src/NNUE/nnue.h>
 
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
@@ -98,6 +99,8 @@ TTEntry transposition_table[TT_SIZE];
 RepetitionEntry repetition_table[REPETITION_TABLE_SIZE];
 
 U64 boardHash;
+
+Accumulator wAccumulator, bAccumulator;
 
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
@@ -282,6 +285,11 @@ int main() {
     initBitboardAttacks();
     initSliders();
     Zobrist::init();
+    std::string networkPath = "nnue_weights.bin"; // Path to the nnue file (should be in .exe working directory)
+    if (!load_nnue(networkPath))
+    {
+        return 1;
+    }
 
     while (std::getline(std::cin, line)) {
 
@@ -291,6 +299,7 @@ int main() {
             std::cout << "id author JavaCoder5\n";
             std::cout << "id version 1.0a\n";
 			std::cout << "info string TT size: " << (TT_SIZE * sizeof(TTEntry)) / (1024 * 1024) << " MB\n";
+            std::cout << "info string using NNUE evaluation from file: " << networkPath << "\n";
             std::cout << "uciok\n" << std::flush;
             unlockPrintMutex();
         }
@@ -378,6 +387,15 @@ int main() {
                 }
             }
 
+            // Refresh the NNUE accumulators after setting the position
+
+			const uint64_t pieceBBs[2][6] = {
+				{ wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
+				{ bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
+			};
+
+            refresh_accumulator_from_bitboards(wAccumulator, *g_nnue_network, pieceBBs);
+            refresh_accumulator_from_bitboards(bAccumulator, *g_nnue_network, pieceBBs, true, true);
         }
         else if (line.rfind("go", 0) == 0) {
             // Parse depth (only "go depth X" for now)
@@ -816,6 +834,23 @@ int main() {
         else if (line == "hash")
         {
             std::cout << "current board hash: " << std::hex << boardHash << std::dec << std::endl << std::flush;
+        }
+        else if (line == "nnue")
+        {
+            Accumulator wAccumulator, bAccumulator;
+            const uint64_t stmPieceBBs[2][6] = {
+                { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
+                { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
+            };
+			const uint64_t ntmPieceBBs[2][6] = {
+				{ bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB },
+				{ wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB }
+			};
+            refresh_accumulator_from_bitboards(wAccumulator, *g_nnue_network, turn ? stmPieceBBs : ntmPieceBBs);
+            refresh_accumulator_from_bitboards(bAccumulator, *g_nnue_network, turn ? ntmPieceBBs : stmPieceBBs, true);
+            //int score = g_nnue_network->evaluate(turn ? wAccumulator : bAccumulator, turn ? bAccumulator : wAccumulator);
+            int score = g_nnue_network->evaluate(wAccumulator, bAccumulator);
+            std::cout << "NNUE evaluation: " << score << " cp\n" << std::flush;
         }
         else if (line == "quit") {
                 break;

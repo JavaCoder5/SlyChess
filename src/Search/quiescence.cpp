@@ -22,7 +22,18 @@ int quiescence(int alpha, int beta)
     // Leaf PV length
     pvLength[ply] = ply;
 
-    int standPat = evaluate();
+    // Evaluate the position using NNUE
+    const uint64_t pieceBBs[2][6] = {
+        { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
+        { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
+    };
+
+    // TODO: Implement incremental NNUE updates
+    // for now, refresh the accumulators from scratch before evaluating
+    refresh_accumulator_from_bitboards(wAccumulator, *g_nnue_network, pieceBBs);
+    refresh_accumulator_from_bitboards(bAccumulator, *g_nnue_network, pieceBBs, true, true);
+    int standPat = g_nnue_network->evaluate(wAccumulator, bAccumulator);
+    standPat *= turn ? 1 : -1; // Adjust score based on whose turn it is
 
     if (standPat >= beta)
         return beta;

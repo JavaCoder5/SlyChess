@@ -18,6 +18,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <src/NNUE/nnue.h>
 
 using U64 = unsigned long long;
 using I16 = short;
@@ -37,6 +38,7 @@ struct UndoInfo {
     bool wasPromotion;
     bool wasCastle;
     int rookFrom, rookTo;
+    Accumulator prevAccumulator[2]; // 0: white, 1: black
 };
 
 constexpr int MAX_UNDO = 8192;
