@@ -46,6 +46,17 @@
 #include <src/misc/printMutex.h>
 #include <src/NNUE/nnue.h>
 
+#include <filesystem>
+
+#if defined(_WIN32)
+#define NOMINMAX
+#include <windows.h>
+#elif defined(__linux__)
+#include <unistd.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
+
 U64 wPawnBB = WPAWN_START;
 U64 wKnightBB = WKNIGHT_START;
 U64 wBishopBB = WBISHOP_START;
@@ -276,6 +287,30 @@ bool setPositionFromFEN(const std::string &fen)
     return true;
 }
 
+namespace fs = std::filesystem;
+
+static fs::path get_executable_dir() {
+#if defined(_WIN32)
+    wchar_t buffer[MAX_PATH];
+    GetModuleFileNameW(NULL, buffer, MAX_PATH);
+    return fs::path(buffer).parent_path();
+#elif defined(__linux__)
+    char buffer[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+    if (len != -1) {
+        buffer[len] = '\0';
+        return fs::path(buffer).parent_path();
+    }
+#elif defined(__APPLE__)
+    char buffer[PATH_MAX];
+    uint32_t size = sizeof(buffer);
+    if (_NSGetExecutablePath(buffer, &size) == 0) {
+        return fs::path(buffer).parent_path();
+    }
+#endif
+    return fs::current_path(); // Fallback to current working directory if all else fails
+}
+
 int main() {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
@@ -285,8 +320,8 @@ int main() {
     initBitboardAttacks();
     initSliders();
     Zobrist::init();
-    std::string networkPath = "nnue_weights.bin"; // Path to the nnue file (should be in .exe working directory)
-    if (!load_nnue(networkPath))
+    fs::path networkPath = get_executable_dir() / "nnue_weights.bin";
+    if (!load_nnue(networkPath.string()))
     {
         return 1;
     }
