@@ -23,6 +23,9 @@ void unmakeMove(Move m)
     if (historyTop <= 0) return;
     UndoInfo ui = history[--historyTop];
 
+	wAccumulator = ui.prevAccumulator[0];
+	bAccumulator = ui.prevAccumulator[1];
+
     // Determine moving side: mover was the side that just moved, which is !turn
     bool moverWhite = !turn;
 

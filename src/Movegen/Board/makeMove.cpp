@@ -46,11 +46,32 @@ void makeMove(Move m)
 
     bool whiteToMove = turn;
 
+    int movingPiece = -1;
+    if (whiteToMove) {
+        if (wPawnBB & fromBit) movingPiece = 0;
+        else if (wKnightBB & fromBit) movingPiece = 1;
+        else if (wBishopBB & fromBit) movingPiece = 2;
+        else if (wRookBB & fromBit) movingPiece = 3;
+        else if (wQueenBB & fromBit) movingPiece = 4;
+        else if (wKingBB & fromBit) movingPiece = 5;
+    }
+    else {
+        if (bPawnBB & fromBit) movingPiece = 0;
+        else if (bKnightBB & fromBit) movingPiece = 1;
+        else if (bBishopBB & fromBit) movingPiece = 2;
+        else if (bRookBB & fromBit) movingPiece = 3;
+        else if (bQueenBB & fromBit) movingPiece = 4;
+        else if (bKingBB & fromBit) movingPiece = 5;
+    }
+
     history[historyTop].move = m;
+    history[historyTop].prevAccumulator[0] = wAccumulator;
+    history[historyTop].prevAccumulator[1] = bAccumulator;
 
     history[historyTop].capturedPiece = 0;
 
     history[historyTop].wasPromotion = false;
+    history[historyTop].wasCastle = false;
 
 	history[historyTop].rookFrom = -1;
 	history[historyTop].rookTo = -1;
@@ -360,6 +381,9 @@ void makeMove(Move m)
                         boardHash ^= Zobrist::psq[wRook][7];
                         wRookBB &= ~h1; wRookBB |= f1;
                         boardHash ^= Zobrist::psq[wRook][5];
+                        history[historyTop].rookFrom = 7;
+                        history[historyTop].rookTo = 5;
+                        history[historyTop].wasCastle = true;
                     }
                 }
                 else if (diff == -2) {
@@ -370,6 +394,9 @@ void makeMove(Move m)
                         boardHash ^= Zobrist::psq[wRook][0];
                         wRookBB &= ~a1; wRookBB |= d1; 
                         boardHash ^= Zobrist::psq[wRook][3];
+                        history[historyTop].rookFrom = 0;
+                        history[historyTop].rookTo = 3;
+                        history[historyTop].wasCastle = true;
                     }
                 }
             }
@@ -552,13 +579,27 @@ void makeMove(Move m)
                     // black king side e8->g8: move h8->f8
                     U64 h8 = 1ULL << 63;
                     U64 f8 = 1ULL << 61;
-                    if (bRookBB & h8) { bRookBB &= ~h8; bRookBB |= f8; }
+                    if (bRookBB & h8) {
+                        boardHash ^= Zobrist::psq[bRook][63];
+                        bRookBB &= ~h8; bRookBB |= f8;
+                        boardHash ^= Zobrist::psq[bRook][61];
+                        history[historyTop].rookFrom = 63;
+                        history[historyTop].rookTo = 61;
+                        history[historyTop].wasCastle = true;
+                    }
                 }
                 else if (diff == -2) {
                     // black queen side e8->c8: move a8->d8
                     U64 a8 = 1ULL << 56;
                     U64 d8 = 1ULL << 59;
-                    if (bRookBB & a8) { bRookBB &= ~a8; bRookBB |= d8; }
+                    if (bRookBB & a8) {
+                        boardHash ^= Zobrist::psq[bRook][56];
+                        bRookBB &= ~a8; bRookBB |= d8;
+                        boardHash ^= Zobrist::psq[bRook][59];
+                        history[historyTop].rookFrom = 56;
+                        history[historyTop].rookTo = 59;
+                        history[historyTop].wasCastle = true;
+                    }
                 }
             }
         }
@@ -579,6 +620,46 @@ void makeMove(Move m)
     turn = !turn;
 
     boardHash ^= Zobrist::sideToMoveKey;
+
+    if (g_nnue_network && movingPiece >= 0) {
+        auto updateFeature = [&](Accumulator& accumulator, bool pieceIsWhite, int piece, int square, bool add, bool blackPerspective) {
+            int featureColor = pieceIsWhite ? 0 : 1;
+            if (blackPerspective) featureColor = 1 - featureColor;
+            int featureSquare = blackPerspective ? (square ^ 56) : square;
+            std::size_t featureIndex = featureColor * 384 + piece * 64 + featureSquare;
+            if (add) accumulator.add_feature(featureIndex, *g_nnue_network);
+            else accumulator.remove_feature(featureIndex, *g_nnue_network);
+        };
+
+        auto updateBothPerspectives = [&](bool pieceIsWhite, int piece, int square, bool add) {
+            updateFeature(wAccumulator, pieceIsWhite, piece, square, add, false);
+            updateFeature(bAccumulator, pieceIsWhite, piece, square, add, true);
+        };
+
+        updateBothPerspectives(whiteToMove, movingPiece, fromSq, false);
+        int destinationPiece = movingPiece;
+        if (history[historyTop].wasPromotion) {
+            if (flags == FLAG_PROMOTION_Q) destinationPiece = 4;
+            else if (flags == FLAG_PROMOTION_R) destinationPiece = 3;
+            else if (flags == FLAG_PROMOTION_B) destinationPiece = 2;
+            else if (flags == FLAG_PROMOTION_N) destinationPiece = 1;
+        }
+        updateBothPerspectives(whiteToMove, destinationPiece, toSq, true);
+
+        char capturedPiece = history[historyTop].capturedPiece;
+        if (capturedPiece != 0) {
+            bool capturedWhite = capturedPiece >= 'A' && capturedPiece <= 'Z';
+            char pieceLetter = capturedWhite ? capturedPiece : static_cast<char>(capturedPiece - 'a' + 'A');
+            int capturedType = pieceLetter == 'P' ? 0 : pieceLetter == 'N' ? 1 : pieceLetter == 'B' ? 2 :
+                pieceLetter == 'R' ? 3 : pieceLetter == 'Q' ? 4 : 5;
+            updateBothPerspectives(capturedWhite, capturedType, history[historyTop].capturedSquare, false);
+        }
+
+        if (history[historyTop].rookFrom >= 0) {
+            updateBothPerspectives(whiteToMove, 3, history[historyTop].rookFrom, false);
+            updateBothPerspectives(whiteToMove, 3, history[historyTop].rookTo, true);
+        }
+    }
 
     historyTop++;
 }

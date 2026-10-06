@@ -19,6 +19,7 @@
 #include <src/Constants/Constants.h>
 #include <iostream>
 #include <src/zobrist/zobrist.h>
+#include <src/NNUE/nnue.h>
 
 extern U64 wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB;
 
@@ -38,5 +39,7 @@ extern bool wKingCastleKRights, wKingCastleQRights;
 extern bool bKingCastleKRights, bKingCastleQRights;
 
 extern U64 boardHash;
+
+extern Accumulator wAccumulator, bAccumulator;
 
 void makeMove(Move m);
