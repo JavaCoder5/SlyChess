@@ -45,7 +45,7 @@
 #include <src/zobrist/computeBaseHash.h>
 #include <src/misc/printMutex.h>
 #include <src/NNUE/nnue.h>
-
+#include <src/uci/uciOptions.h>
 #include <filesystem>
 
 #if defined(_WIN32)
@@ -326,6 +326,8 @@ int main() {
         return 1;
     }
 
+    addUciOption("Move Overhead", UCI_OPTION_SPIN, 40, 0, 5000);
+
     while (std::getline(std::cin, line)) {
 
         if (line == "uci") {
@@ -335,6 +337,9 @@ int main() {
             std::cout << "id version 1.0a\n";
 			std::cout << "info string TT size: " << (TT_SIZE * sizeof(TTEntry)) / (1024 * 1024) << " MB\n";
             std::cout << "info string using NNUE evaluation from file: " << networkPath << "\n";
+
+            printUciOptions();
+
             std::cout << "uciok\n" << std::flush;
             unlockPrintMutex();
         }
@@ -886,6 +891,83 @@ int main() {
             //int score = g_nnue_network->evaluate(turn ? wAccumulator : bAccumulator, turn ? bAccumulator : wAccumulator);
             int score = g_nnue_network->evaluate(wAccumulator, bAccumulator);
             std::cout << "NNUE evaluation: " << score << " cp\n" << std::flush;
+        }
+        else if (line.rfind("setoption", 0) == 0)
+        {
+            // Handle setoption command
+            std::stringstream ss(line);
+            std::string token;
+            ss >> token; // "setoption"
+            ss >> token; // "name"
+
+            std::string optionName;
+            if (token == "name")
+            {
+				ss >> token; // Read the option name
+
+				optionName += token; // Start building the option name
+                while (ss >> token)
+                {
+                    if (token == "value")
+                    {
+                        break;
+                    }
+					optionName += " " + token;
+                }
+            }
+            // By now the token should be "value", and the rest of the line is the value
+            if (token != "value")
+            {
+                continue;
+            }
+            else
+            {
+                // Token is now guaranteed to be "value", so read the rest of the line as the value
+                std::string optionValue; 
+                
+                optionValue = ss.str().substr(ss.tellg());
+
+                // Find the position of the first character that isn't a space or tab
+                size_t firstNonSpace = optionValue.find_first_not_of(" \t");
+
+                // Trim leading whitespace if found, otherwise clear the string
+                optionValue = (firstNonSpace == std::string::npos) ? "" : optionValue.substr(firstNonSpace);
+
+                // Set the corresponding option based on the optionName and optionValue
+                // Figure out which option type it is and set the value accordingly
+                UciOptionType optionType = getUciOptionType(optionName);
+                switch (optionType)
+                {
+                case UCI_OPTION_BUTTON:
+                    // Handle button option (click)
+                    if (optionValue == "true")
+                        setUciOptionValue(optionName, true);
+                    else
+                        setUciOptionValue(optionName, false);
+                    break;
+                case UCI_OPTION_SPIN:
+                    // Handle spin option
+                    int intValue;
+                    try
+                    {
+                        intValue = std::stoi(optionValue);
+                    }
+                    catch (std::exception e)
+                    {
+                        lockPrintMutex();
+                        std::cerr << "Invalid integer for option: " << optionName << "\n" << std::flush;
+                        unlockPrintMutex();
+                        continue;
+                    }
+                    setUciOptionValue(optionName, intValue);
+                    break;
+                case UCI_OPTION_STRING:
+                    // Handle string option
+                    setUciOptionValue(optionName, optionValue);
+                    break;
+                }
+            }
+            
         }
         else if (line == "quit") {
                 break;

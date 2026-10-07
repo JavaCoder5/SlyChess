@@ -19,6 +19,7 @@
 #include <thread>
 #include <chrono>
 #include <src/Search/stopAndJoinSearch.h>
+#include <src/uci/uciOptions.h>
 
 extern bool turn;
 

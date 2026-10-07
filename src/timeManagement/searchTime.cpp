@@ -16,10 +16,11 @@
 */
 
 #include "searchTime.h"
+#include <iostream>
 
 void searchTime(int totalTime)
 {
-	int waitTime = totalTime;
+	int waitTime = std::max(totalTime - 50, 25);
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
 
@@ -41,6 +42,9 @@ void searchTimeControl(int wTime, int bTime, int wInc, int bInc)
 		// Black to play
 		waitTime = bTime / 20 + bInc / 2;
 	}
+
+	int moveOverhead = std::stoi(getUciOptionValue("Move Overhead"));
+	waitTime = std::max(waitTime - moveOverhead, 25); // Ensure a minimum wait time of 25ms to avoid a null move return.
 
 	std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
 
