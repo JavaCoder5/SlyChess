@@ -31,10 +31,17 @@ add_executable (SlyChess "src/SlyChess/SlyChess.cpp"  "src/Constants/Constants.h
 
 target_include_directories(SlyChess PRIVATE ${PROJECT_SOURCE_DIR})
 
-if (MSVC)
-  target_compile_options(SlyChess PRIVATE /arch:AVX2)
-else()
-  target_compile_options(SlyChess PRIVATE -mavx2)
+string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR};${CMAKE_GENERATOR_PLATFORM}" SLYCHESS_TARGET_ARCH)
+if (SLYCHESS_TARGET_ARCH MATCHES "x86_64|amd64|i[3-6]86|win32")
+  if (MSVC)
+    target_sources(SlyChess PRIVATE "src/NNUE/nnue_avx2.cpp")
+    set_source_files_properties("src/NNUE/nnue_avx2.cpp" PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
+    target_compile_definitions(SlyChess PRIVATE SLYCHESS_HAS_AVX2=1)
+  elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_sources(SlyChess PRIVATE "src/NNUE/nnue_avx2.cpp")
+    set_source_files_properties("src/NNUE/nnue_avx2.cpp" PROPERTIES COMPILE_OPTIONS "-mavx2")
+    target_compile_definitions(SlyChess PRIVATE SLYCHESS_HAS_AVX2=1)
+  endif()
 endif()
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
