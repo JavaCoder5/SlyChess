@@ -68,6 +68,13 @@ int alphaBeta(int depth, int alpha, int beta)
 		return 0;
 	}
 
+	if (halfmoveClock >= 100)
+	{
+		std::cerr << "Draw by 50-move rule detected at ply " << ply << std::endl;
+		pvLength[ply] = ply;
+		return 0; // Draw by 50-move rule
+	}
+
 	int ttScore = 0;
 	U8 ttDepth = 0;
 	U8 ttFlag = 0;

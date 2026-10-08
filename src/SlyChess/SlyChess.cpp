@@ -113,6 +113,8 @@ U64 boardHash;
 
 Accumulator wAccumulator, bAccumulator;
 
+int halfmoveClock = 0;
+
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
 {
@@ -176,10 +178,12 @@ bool setPositionFromFEN(const std::string &fen)
     std::string sideField;
     std::string castlingField;
     std::string epField;
+    std::string halfmoveClockField;
     // Read optional fields if present
     fs >> sideField; // 'w' or 'b'
     fs >> castlingField; // may be '-'
     fs >> epField; // en-passant target or '-'
+    fs >> halfmoveClockField;
 
     // Prepare temporary bitboards
     U64 twPawn = 0ULL, twKnight = 0ULL, twBishop = 0ULL, twRook = 0ULL, twQueen = 0ULL, twKing = 0ULL;
@@ -281,6 +285,8 @@ bool setPositionFromFEN(const std::string &fen)
         bKingCastleQRights = castlingField.find('q') != std::string::npos;
         bKingCastleKRights = castlingField.find('k') != std::string::npos;
 	}
+
+	halfmoveClock = std::stoi(halfmoveClockField.empty() ? "0" : halfmoveClockField);
 
     boardHash = computeBaseHash();
 

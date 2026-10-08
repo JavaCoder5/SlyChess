@@ -330,6 +330,8 @@ void unmakeMove(Move m)
         (bKingCastleQRights ? (1 << 3) : 0);
     boardHash ^= Zobrist::castling[cr];
 
+    halfmoveClock = ui.prevHalfmoveClock;
+
     // Update aggregate bitboards
     allWhiteBB = wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB;
     allBlackBB = bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB;

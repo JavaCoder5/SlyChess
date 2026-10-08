@@ -41,4 +41,6 @@ extern U64 boardHash;
 
 extern Accumulator wAccumulator, bAccumulator;
 
+extern int halfmoveClock;
+
 void unmakeMove(Move m);

@@ -44,6 +44,8 @@ void makeMove(Move m)
 
     history[historyTop].wasEnPassant = false;
 
+    history[historyTop].prevHalfmoveClock = halfmoveClock;
+
     bool whiteToMove = turn;
 
     int movingPiece = -1;
@@ -659,6 +661,19 @@ void makeMove(Move m)
             updateBothPerspectives(whiteToMove, 3, history[historyTop].rookFrom, false);
             updateBothPerspectives(whiteToMove, 3, history[historyTop].rookTo, true);
         }
+    }
+
+    if (movingPiece == 0)
+    {
+        halfmoveClock = 0; // Reset halfmove clock on pawn move
+    }
+    else if (history[historyTop].capturedPiece != 0)
+    {
+        halfmoveClock = 0; // Reset halfmove clock on capture
+    }
+    else
+    {
+        ++halfmoveClock; // Increment halfmove clock otherwise
     }
 
     historyTop++;
