@@ -22,14 +22,24 @@
 static_assert(HIDDEN_SIZE % 16 == 0);
 
 void nnue_avx2_apply_feature_delta(int16_t* accumulator, const int16_t* feature, bool subtract) {
-	for (std::size_t i = 0; i < HIDDEN_SIZE; i += 16) {
-		__m256i accumulatorValues = _mm256_load_si256(reinterpret_cast<const __m256i*>(accumulator + i));
-		__m256i featureValues = _mm256_load_si256(reinterpret_cast<const __m256i*>(feature + i));
-		__m256i result = subtract
-			? _mm256_sub_epi16(accumulatorValues, featureValues)
-			: _mm256_add_epi16(accumulatorValues, featureValues);
-		_mm256_store_si256(reinterpret_cast<__m256i*>(accumulator + i), result);
+	if (subtract)
+	{
+		for (std::size_t i = 0; i < HIDDEN_SIZE; i += 16) {
+			__m256i accumulatorValues = _mm256_load_si256(reinterpret_cast<const __m256i*>(accumulator + i));
+			__m256i featureValues = _mm256_load_si256(reinterpret_cast<const __m256i*>(feature + i));
+			_mm256_store_si256(reinterpret_cast<__m256i*>(accumulator + i), _mm256_sub_epi16(accumulatorValues, featureValues));
+		}
 	}
+	else
+	{
+		for (std::size_t i = 0; i < HIDDEN_SIZE; i += 16) {
+			__m256i accumulatorValues = _mm256_load_si256(reinterpret_cast<const __m256i*>(accumulator + i));
+			__m256i featureValues = _mm256_load_si256(reinterpret_cast<const __m256i*>(feature + i));
+			
+			_mm256_store_si256(reinterpret_cast<__m256i*>(accumulator + i), _mm256_add_epi16(accumulatorValues, featureValues));
+		}
+	}
+	
 }
 
 int32_t nnue_avx2_screlu_dot(const int16_t* values, const int16_t* weights) {
