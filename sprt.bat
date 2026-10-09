@@ -4,7 +4,7 @@ setlocal
 :: Check if two commit hashes are provided as arguments
 if "%~2"=="" goto :usage
 
-::call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
+call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 set "COMMIT_BASE=%~1"
 set "COMMIT_NEW=%~2"
@@ -21,8 +21,20 @@ if not defined CURRENT_STATE (
     for /f "delims=" %%i in ('git rev-parse HEAD') do set "CURRENT_STATE=%%i"
 )
 
-echo === Stashing any uncommitted local changes...
-git stash
+:: Check if there are uncommitted changes to stash
+set "STASHED=0"
+for /f "delims=" %%i in ('git status --porcelain') do (
+    set "STASHED=1"
+    goto :check_stash_done
+)
+:check_stash_done
+
+if "%STASHED%"=="1" (
+    echo === Stashing any uncommitted local changes...
+    git stash
+) else (
+    echo === No local changes to stash.
+)
 
 :: --- 1. BUILD BASE ENGINE ---
 echo === Checking out base commit: %COMMIT_BASE%
@@ -51,9 +63,12 @@ if errorlevel 1 goto :error
 :: --- 3. RESTORE REPO STATE ---
 echo === Restoring original git state (%CURRENT_STATE%)...
 git checkout "%CURRENT_STATE%"
-git stash pop >nul 2>&1
-if errorlevel 1 (
-    echo Note: No stash to pop or conflict handled.
+if "%STASHED%"=="1" (
+    echo === Restoring stashed changes...
+    git stash pop >nul 2>&1
+    if errorlevel 1 (
+        echo Note: Conflict encountered while popping stash.
+    )
 )
 
 :: --- 4. RUN SPRT TEST ---
@@ -80,5 +95,6 @@ exit /b 1
 echo Error encountered. Aborting script.
 :: Attempt to restore original state on failure if possible
 if defined CURRENT_STATE git checkout "%CURRENT_STATE%" >nul 2>&1
+if "%STASHED%"=="1" git stash pop >nul 2>&1
 endlocal
 exit /b 1
