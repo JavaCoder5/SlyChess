@@ -22,7 +22,7 @@
 #include <string>
 
 constexpr std::size_t HIDDEN_SIZE = 256;
-constexpr int32_t SCALE = 400;
+constexpr int32_t SCALE = 128;
 constexpr int16_t QA = 255;
 constexpr int16_t QB = 64;
 
