@@ -22,6 +22,7 @@
 #include <src/Evaluation/evaluate.h>
 #include <src/Movegen/isSquareAttacked.h>
 #include <src/NNUE/nnue.h>
+#include <src/Movegen/generateLegalMoves.h>
 
 extern Move pvTable[MAX_DEPTH][MAX_DEPTH];
 extern int pvLength[MAX_DEPTH];

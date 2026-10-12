@@ -49,7 +49,10 @@ int quiescence(int alpha, int beta)
     Move moveList[256] = { 0 };
     int moveCount = 0;
 
-    generateLegalCaptures(&moveList, turn, &moveCount);
+    if (isInCheck)
+        generateLegalMoves(&moveList, turn, &moveCount);
+    else
+        generateLegalCaptures(&moveList, turn, &moveCount);
 
     if (moveCount == 0)
         return standPat; // Avoids redundant evaluate() call
