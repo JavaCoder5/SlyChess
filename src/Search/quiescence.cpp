@@ -19,6 +19,7 @@
 
 int quiescence(int alpha, int beta)
 {
+    ++abNodes;
     // Leaf PV length
     pvLength[ply] = ply;
 

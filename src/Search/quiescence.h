@@ -30,4 +30,6 @@ extern int ply;
 
 extern Accumulator wAccumulator, bAccumulator;
 
+extern U64 abNodes;
+
 int quiescence(int alpha, int beta);
