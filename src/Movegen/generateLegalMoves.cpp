@@ -16,15 +16,43 @@
 */
 
 #include "generateLegalMoves.h"
-#include "isSquareAttacked.h"
+
+static bool isSquareAttackedWithOccupancy(int sq, bool byWhite, U64 occupancy, U64 removedAttackers)
+{
+    if (sq < 0 || sq >= 64) return false;
+
+    U64 sqBB = 1ULL << sq;
+    U64 pawns = (byWhite ? wPawnBB : bPawnBB) & ~removedAttackers;
+    int p1 = sq + (byWhite ? -7 : 7);
+    int p2 = sq + (byWhite ? -9 : 9);
+    if (p1 >= 0 && p1 < 64 && (pawns & (1ULL << p1)) &&
+        ((byWhite ? wPawnCaptures : bPawnCaptures)[p1] & sqBB)) return true;
+    if (p2 >= 0 && p2 < 64 && (pawns & (1ULL << p2)) &&
+        ((byWhite ? wPawnCaptures : bPawnCaptures)[p2] & sqBB)) return true;
+
+    U64 knights = (byWhite ? wKnightBB : bKnightBB) & ~removedAttackers;
+    if (knightAttacks[sq] & knights) return true;
+
+    U64 kings = (byWhite ? wKingBB : bKingBB) & ~removedAttackers;
+    if (kingAttacks[sq] & kings) return true;
+
+    U64 rooks = ((byWhite ? wRookBB : bRookBB) | (byWhite ? wQueenBB : bQueenBB)) & ~removedAttackers;
+    if (lookupRookAttacks(sq, occupancy) & rooks) return true;
+
+    U64 bishops = ((byWhite ? wBishopBB : bBishopBB) | (byWhite ? wQueenBB : bQueenBB)) & ~removedAttackers;
+    return (lookupBishopAttacks(sq, occupancy) & bishops) != 0;
+}
 
 // Generate legal moves for sideToMove by filtering pseudo-legal moves.
-// Uses makeMove/unmakeMove to test each move for king safety without allocations.
 void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
 {
     Move temp[256] = { 0 };
     int tempSize = 0;
     generatePseudoLegalMoves(&temp, sideToMove, &tempSize);
+
+    const int kingSq = count_trailing_zeros(sideToMove ? wKingBB : bKingBB);
+    const U64 kingBit = 1ULL << kingSq;
+    const U64 opponentPieces = sideToMove ? allBlackBB : allWhiteBB;
 
     int outIdx = 0;
 
@@ -32,89 +60,46 @@ void generateLegalMoves(Move(*moves)[], bool sideToMove, int* size)
         Move m = temp[i];
         if (m == 0) break;
 
-        // Snapshot king square before making the move (needed for castling checks)
-        int kingFrom = -1;
-        if (sideToMove == WHITE) kingFrom = count_trailing_zeros(wKingBB);
-        else kingFrom = count_trailing_zeros(bKingBB);
+        int fromSq = m & 0x3F;
+        int toSq = (m >> 6) & 0x3F;
+        int flags = m & 0xF000;
+        U64 fromBit = 1ULL << fromSq;
+        U64 toBit = 1ULL << toSq;
+        U64 capturedBit = opponentPieces & toBit;
+        if (flags == FLAG_EN_PASSANT) {
+            int capturedSq = sideToMove ? toSq - 8 : toSq + 8;
+            capturedBit = 1ULL << capturedSq;
+        }
 
-        // Make the move
-        /*
-        // Snapshot current aggregate bitboards into debug vectors
-        std::vector<U64> before = { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB,
-                                    bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB,
-                                    allWhiteBB, allBlackBB, allPiecesBB };
-                                    */
+        U64 occupancy = (allPiecesBB & ~fromBit & ~capturedBit) | toBit;
+        bool kingAttacked;
 
+        if (flags == FLAG_CASTLE_K || flags == FLAG_CASTLE_Q) {
+            int throughSq = sideToMove
+                ? (flags == FLAG_CASTLE_K ? 5 : 3)
+                : (flags == FLAG_CASTLE_K ? 61 : 59);
+            int rookFromSq = sideToMove
+                ? (flags == FLAG_CASTLE_K ? 7 : 0)
+                : (flags == FLAG_CASTLE_K ? 63 : 56);
+            int rookToSq = sideToMove
+                ? (flags == FLAG_CASTLE_K ? 5 : 3)
+                : (flags == FLAG_CASTLE_K ? 61 : 59);
+            U64 rookFromBit = 1ULL << rookFromSq;
+            U64 ownRooks = sideToMove ? wRookBB : bRookBB;
+            U64 throughOccupancy = (allPiecesBB & ~fromBit) | (1ULL << throughSq);
+            U64 finalOccupancy = occupancy;
+            if (ownRooks & rookFromBit) {
+                finalOccupancy = (finalOccupancy & ~rookFromBit) | (1ULL << rookToSq);
+            }
 
-        makeMove(m);
-
-        // After makeMove, turn is toggled, opponent to move.
-        // Find king square of the side that just moved (sideToMove)
-        int kingSq = -1;
-        if (sideToMove == WHITE) {
-            kingSq = count_trailing_zeros(wKingBB);
+            kingAttacked = isSquareAttackedWithOccupancy(kingSq, !sideToMove, allPiecesBB, 0) ||
+                isSquareAttackedWithOccupancy(throughSq, !sideToMove, throughOccupancy, 0) ||
+                isSquareAttackedWithOccupancy(toSq, !sideToMove, finalOccupancy, 0);
         }
         else {
-            kingSq = count_trailing_zeros(bKingBB);
+            int resultingKingSq = fromBit & kingBit ? toSq : kingSq;
+            kingAttacked = isSquareAttackedWithOccupancy(resultingKingSq, !sideToMove, occupancy, capturedBit);
         }
-
-        // Fast attack test using bitboards instead of generating opponent moves
-        bool kingAttacked = isSquareAttacked(kingSq, !sideToMove);
-
-        if ((m & 0xF000) == FLAG_CASTLE_K)
-        {
-            // Verify castling legality: king must not be in check before, through, or after the move
-            // kingFrom was captured above before makeMove
-            unmakeMove(m);
-            if (isSquareAttacked(kingFrom, !sideToMove)) kingAttacked = true;
-            makeMove(m);
-            int throughSq = sideToMove == WHITE ? 5 : 61; // f1 / f8
-            int toSq = sideToMove == WHITE ? 6 : 62; // g1 / g8
-            if (isSquareAttacked(throughSq, !sideToMove) || isSquareAttacked(toSq, !sideToMove)) kingAttacked = true;
-        }
-        else if ((m & 0xF000) == FLAG_CASTLE_Q)
-        {
-            // Verify castling legality: king must not be in check before, through, or after the move
-            unmakeMove(m);
-            if (isSquareAttacked(kingFrom, !sideToMove)) kingAttacked = true;
-            makeMove(m);
-            int throughSq = sideToMove == WHITE ? 3 : 59; // d1 / d8
-            int toSq = sideToMove == WHITE ? 2 : 58; // c1 / c8
-            if (isSquareAttacked(throughSq, !sideToMove) || isSquareAttacked(toSq, !sideToMove)) kingAttacked = true;
-        }
-
-        // Unmake the move
-        unmakeMove(m);
-
-        /*
-        // Snapshot after unmake
-        std::vector<U64> after = { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB,
-                                   bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB,
-                                   allWhiteBB, allBlackBB, allPiecesBB };
-
-        // Compare before and after and print debug if mismatch
-        bool mismatch = false;
-        for (size_t k = 0; k < before.size(); ++k) {
-            if (before[k] != after[k]) {
-                mismatch = true; break;
-            }
-        }
-        if (mismatch) {
-            std::cout << "DEBUG: Board mismatch around move " << moveToUCI(m) << "\n" << std::flush;
-            const char* names[] = { "wP","wN","wB","wR","wQ","wK","bP","bN","bB","bR","bQ","bK","allW","allB","all" };
-            for (size_t k = 0; k < before.size(); ++k) {
-                if (before[k] != after[k]) {
-                    std::cout << "  " << names[k] << ": before=" << std::endl;
-                    printBitboard(before[k]);
-                    std::cout << " after=" << std::endl;
-                    printBitboard(after[k]);
-                    std::cout << "\n" << std::flush;
-                }
-            }
-        }
-
-        */
-
 
         if (!kingAttacked) {
             // keep move

@@ -16,6 +16,8 @@
 */
 
 #include <src/Movegen/Perft/perft.h>
+#include <src/Movegen/Board/makeMove.h>
+#include <src/Movegen/Board/unmakeMove.h>
 
 U64 perft(int depth)
 {
