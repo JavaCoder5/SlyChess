@@ -70,7 +70,6 @@ int alphaBeta(int depth, int alpha, int beta)
 
 	if (halfmoveClock >= 100)
 	{
-		std::cerr << "Draw by 50-move rule detected at ply " << ply << std::endl;
 		pvLength[ply] = ply;
 		return 0; // Draw by 50-move rule
 	}
