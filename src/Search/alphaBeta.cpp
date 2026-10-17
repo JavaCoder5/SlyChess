@@ -205,6 +205,7 @@ int alphaBeta(int depth, int alpha, int beta)
 		{
 			//reduction = (i / 2.5) * (depth / 4);
 			reduction = 1;
+			if (i >= 7) reduction = 2;
 		}
 
 		if (reduction > 0)
