@@ -18,11 +18,41 @@
 #include "generateLegalCaptures.h"
 #include "isSquareAttacked.h"
 
+inline static bool isSquareAttackedWithOccupancy(int sq, bool byWhite, U64 occupancy, U64 removedAttackers)
+{
+    if (sq < 0 || sq >= 64) return false;
+
+    U64 sqBB = 1ULL << sq;
+    U64 pawns = (byWhite ? wPawnBB : bPawnBB) & ~removedAttackers;
+    int p1 = sq + (byWhite ? -7 : 7);
+    int p2 = sq + (byWhite ? -9 : 9);
+    if (p1 >= 0 && p1 < 64 && (pawns & (1ULL << p1)) &&
+        ((byWhite ? wPawnCaptures : bPawnCaptures)[p1] & sqBB)) return true;
+    if (p2 >= 0 && p2 < 64 && (pawns & (1ULL << p2)) &&
+        ((byWhite ? wPawnCaptures : bPawnCaptures)[p2] & sqBB)) return true;
+
+    U64 knights = (byWhite ? wKnightBB : bKnightBB) & ~removedAttackers;
+    if (knightAttacks[sq] & knights) return true;
+
+    U64 kings = (byWhite ? wKingBB : bKingBB) & ~removedAttackers;
+    if (kingAttacks[sq] & kings) return true;
+
+    U64 rooks = ((byWhite ? wRookBB : bRookBB) | (byWhite ? wQueenBB : bQueenBB)) & ~removedAttackers;
+    if (lookupRookAttacks(sq, occupancy) & rooks) return true;
+
+    U64 bishops = ((byWhite ? wBishopBB : bBishopBB) | (byWhite ? wQueenBB : bQueenBB)) & ~removedAttackers;
+    return (lookupBishopAttacks(sq, occupancy) & bishops) != 0;
+}
+
 void generateLegalCaptures(Move(*moves)[], bool sideToMove, int* size)
 {
     Move temp[256] = { 0 };
     int tempSize = 0;
     generatePseudoLegalCaptures(&temp, sideToMove, &tempSize);
+
+    const int kingSq = count_trailing_zeros(sideToMove ? wKingBB : bKingBB);
+    const U64 kingBit = 1ULL << kingSq;
+    const U64 opponentPieces = sideToMove ? allBlackBB : allWhiteBB;
 
     int outIdx = 0;
 
@@ -30,23 +60,22 @@ void generateLegalCaptures(Move(*moves)[], bool sideToMove, int* size)
         Move m = temp[i];
         if (m == 0) break;
 
-        makeMove(m);
-
-        // After makeMove, turn is toggled, opponent to move.
-        // Find king square of the side that just moved (sideToMove)
-        int kingSq = -1;
-        if (sideToMove == WHITE) {
-            kingSq = count_trailing_zeros(wKingBB);
+        int fromSq = m & 0x3F;
+        int toSq = (m >> 6) & 0x3F;
+        int flags = m & 0xF000;
+        U64 fromBit = 1ULL << fromSq;
+        U64 toBit = 1ULL << toSq;
+        U64 capturedBit = opponentPieces & toBit;
+        if (flags == FLAG_EN_PASSANT) {
+            int capturedSq = sideToMove ? toSq - 8 : toSq + 8;
+            capturedBit = 1ULL << capturedSq;
         }
-        else {
-            kingSq = count_trailing_zeros(bKingBB);
-        }
 
-        // Fast attack test using bitboards instead of generating opponent moves
-        bool kingAttacked = isSquareAttacked(kingSq, !sideToMove);
+        U64 occupancy = (allPiecesBB & ~fromBit & ~capturedBit) | toBit;
+        bool kingAttacked;
 
-        // Unmake the move
-        unmakeMove(m);
+        int resultingKingSq = fromBit & kingBit ? toSq : kingSq;
+        kingAttacked = isSquareAttackedWithOccupancy(resultingKingSq, !sideToMove, occupancy, capturedBit);
 
         if (!kingAttacked) {
             // keep move
