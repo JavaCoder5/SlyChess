@@ -207,6 +207,8 @@ int alphaBeta(int depth, int alpha, int beta)
 			reduction = 1;
 			if (i >= 7) reduction = 2;
 			if (i >= 11) reduction = 3;
+			if (i >= 15) reduction = 4;
+			if (i >= 17) reduction = 5;
 		}
 
 		if (reduction > 0)
