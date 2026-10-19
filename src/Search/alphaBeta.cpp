@@ -19,6 +19,8 @@
 
 bool hasNullMoved;
 
+extern int nullMoveReductionTable[MAX_DEPTH];
+
 struct NullMoveUndoInfo {
 	int prevEPSquare;
 };
@@ -176,10 +178,10 @@ int alphaBeta(int depth, int alpha, int beta)
 			!isPvNode &&
 			!isInCheck)
 		{
-			int R = 3;
+			//int R = 3;
 
 			makeNullMove();
-			int nullScore = -alphaBeta(depth - 1 - R, -beta, -beta + 1);
+			int nullScore = -alphaBeta(depth - 1 - nullMoveReductionTable[depth], -beta, -beta + 1);
 			unmakeNullMove();
 
 			if (nullScore >= beta)

@@ -115,6 +115,8 @@ Accumulator wAccumulator, bAccumulator;
 
 int halfmoveClock = 0;
 
+int nullMoveReductionTable[MAX_DEPTH];
+
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
 {
@@ -317,6 +319,16 @@ static fs::path get_executable_dir() {
     return fs::current_path(); // Fallback to current working directory if all else fails
 }
 
+static void initReductionDepthsTable()
+{
+    // Null-move pruning reduction depths
+    for (int i = 0; i < MAX_DEPTH; i++)
+    {
+        // the variable 'i' in this case is referring to the 'depth' variable in the search
+        nullMoveReductionTable[i] = std::max((i - 1) / 3, 0); // ensure reduction can never be less than 0
+    }
+}
+
 int main() {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
@@ -333,6 +345,8 @@ int main() {
     }
 
     addUciOption("Move Overhead", UCI_OPTION_SPIN, 40, 0, 5000);
+
+    initReductionDepthsTable();
 
     while (std::getline(std::cin, line)) {
 
