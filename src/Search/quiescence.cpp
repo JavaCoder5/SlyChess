@@ -205,8 +205,8 @@ int quiescence(int alpha, int beta)
 
     if (!isInCheck)
     {
-        int delta = 650;
-        int promoDelta = 1600;
+        int delta = 1000;
+        int promoDelta = 1950;
         if ((turn ? (wPawnBB & 0xFF000000000000) : (bPawnBB & 0xFF00)))
             delta = promoDelta;
 
