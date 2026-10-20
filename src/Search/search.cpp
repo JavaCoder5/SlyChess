@@ -19,6 +19,7 @@
 #include "sortLegalMoves.h"
 
 U64 abNodes = 0;
+U64 qNodes = 0;
 
 Move pvTable[MAX_DEPTH][MAX_DEPTH];
 int pvLength[MAX_DEPTH];
@@ -118,6 +119,8 @@ void search(int depth)
 				" ttHits " << ttHits <<
 				" ttMisses " << ttMisses <<
 				" nodes " << abNodes <<
+				" qnodes " << qNodes <<
+				" abnodes " << abNodes - qNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();
@@ -129,6 +132,8 @@ void search(int depth)
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" nodes " << abNodes <<
+				" qnodes " << qNodes <<
+				" abnodes " << abNodes - qNodes <<
 				" ttHits " << ttHits <<
 				" ttMisses " << ttMisses <<
 				" pv " << getPV() <<
@@ -144,6 +149,8 @@ void search(int depth)
 				" ttHits " << ttHits <<
 				" ttMisses " << ttMisses <<
 				" nodes " << abNodes <<
+				" qnodes " << qNodes <<
+				" abnodes " << abNodes - qNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();

@@ -190,6 +190,7 @@ static void printPosition()
 int quiescence(int alpha, int beta)
 {
     ++abNodes;
+    ++qNodes;
     // Leaf PV length
     pvLength[ply] = ply;
 
