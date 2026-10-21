@@ -117,6 +117,8 @@ int halfmoveClock = 0;
 
 int nullMoveReductionTable[MAX_DEPTH];
 
+int lmrReductionTable[MAX_DEPTH][256] = { 0 }; // max depth by max number of legal moves
+
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
 {
@@ -321,12 +323,30 @@ static fs::path get_executable_dir() {
 
 static void initReductionDepthsTable()
 {
+    float lmrDepMul = std::stoi(getUciOptionValue("lmrdepmul"));
+    float lmrDepDiv = std::stoi(getUciOptionValue("lmrdepdiv"));
+    float lmrIndxMul = std::stoi(getUciOptionValue("lmrindxmul"));
+    float lmrIndxDiv = std::stoi(getUciOptionValue("lmrindxdiv"));
+
     // Null-move pruning reduction depths
     for (int i = 0; i < MAX_DEPTH; i++)
     {
         // the variable 'i' in this case is referring to the 'depth' variable in the search
         nullMoveReductionTable[i] = std::max((i - 1) / 3, 0); // ensure reduction can never be less than 0
     }
+
+    // LMR reduction depths
+    for (int depth = 1; depth < MAX_DEPTH; depth++)
+    {
+        for (int index = 1; index < 256; index++)
+        {
+            lmrReductionTable[depth][index] = 
+                std::log(static_cast<float>(depth) * (lmrDepMul / lmrDepDiv)) 
+                *
+                std::log(static_cast<float>(index) * (lmrIndxMul / lmrIndxDiv));
+        }
+    }
+
 }
 
 int main() {
@@ -345,6 +365,10 @@ int main() {
     }
 
     addUciOption("Move Overhead", UCI_OPTION_SPIN, 40, 0, 5000);
+    addUciOption("lmrdepmul", UCI_OPTION_SPIN, 1000, 1, 1000);
+    addUciOption("lmrdepdiv", UCI_OPTION_SPIN, 500, 1, 1000);
+    addUciOption("lmrindxmul", UCI_OPTION_SPIN, 500, 1, 1000);
+    addUciOption("lmrindxdiv", UCI_OPTION_SPIN, 860, 1, 1000);
 
     initReductionDepthsTable();
 
@@ -987,6 +1011,10 @@ int main() {
                     break;
                 }
             }
+
+            // I wish there was a better, cleaner way to do this, but I couldn't think of a better solution
+            // Re-initialize the reduction tables with the new values upon changing an engine parameter
+            initReductionDepthsTable();
             
         }
         else if (line == "quit") {

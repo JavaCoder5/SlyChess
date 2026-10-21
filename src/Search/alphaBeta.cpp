@@ -21,6 +21,8 @@ bool hasNullMoved;
 
 extern int nullMoveReductionTable[MAX_DEPTH];
 
+extern int lmrReductionTable[MAX_DEPTH][256];
+
 struct NullMoveUndoInfo {
 	int prevEPSquare;
 };
@@ -206,11 +208,14 @@ int alphaBeta(int depth, int alpha, int beta)
 			&& !isInCheck)
 		{
 			//reduction = (i / 2.5) * (depth / 4);
+			/*
 			reduction = 1;
 			if (i >= 7) reduction = 2;
 			if (i >= 11) reduction = 3;
 			if (i >= 15) reduction = 4;
 			if (i >= 17) reduction = 5;
+			*/
+			reduction = lmrReductionTable[depth][i];
 		}
 
 		if (reduction > 0)
