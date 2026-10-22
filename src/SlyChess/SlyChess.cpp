@@ -323,10 +323,14 @@ static fs::path get_executable_dir() {
 
 static void initReductionDepthsTable()
 {
-    float lmrDepMul = std::stoi(getUciOptionValue("lmrdepmul"));
-    float lmrDepDiv = std::stoi(getUciOptionValue("lmrdepdiv"));
-    float lmrIndxMul = std::stoi(getUciOptionValue("lmrindxmul"));
-    float lmrIndxDiv = std::stoi(getUciOptionValue("lmrindxdiv"));
+    //float lmrDepMul = std::stoi(getUciOptionValue("lmrdepmul"));
+    //float lmrDepDiv = std::stoi(getUciOptionValue("lmrdepdiv"));
+    //float lmrIndxMul = std::stoi(getUciOptionValue("lmrindxmul"));
+    //float lmrIndxDiv = std::stoi(getUciOptionValue("lmrindxdiv"));
+    float lmrDepMul = 554.0f;
+    float lmrDepDiv = 216.0f;
+    float lmrIndxMul = 506.0f;
+    float lmrIndxDiv = 576.0f;
 
     // Null-move pruning reduction depths
     for (int i = 0; i < MAX_DEPTH; i++)
@@ -365,10 +369,10 @@ int main() {
     }
 
     addUciOption("Move Overhead", UCI_OPTION_SPIN, 40, 0, 5000);
-    addUciOption("lmrdepmul", UCI_OPTION_SPIN, 1000, 1, 1000);
-    addUciOption("lmrdepdiv", UCI_OPTION_SPIN, 500, 1, 1000);
-    addUciOption("lmrindxmul", UCI_OPTION_SPIN, 500, 1, 1000);
-    addUciOption("lmrindxdiv", UCI_OPTION_SPIN, 860, 1, 1000);
+    //addUciOption("lmrdepmul", UCI_OPTION_SPIN, 1000, 1, 1000);
+    //addUciOption("lmrdepdiv", UCI_OPTION_SPIN, 500, 1, 1000);
+    //addUciOption("lmrindxmul", UCI_OPTION_SPIN, 500, 1, 1000);
+    //addUciOption("lmrindxdiv", UCI_OPTION_SPIN, 860, 1, 1000);
 
     initReductionDepthsTable();
 
@@ -1014,7 +1018,8 @@ int main() {
 
             // I wish there was a better, cleaner way to do this, but I couldn't think of a better solution
             // Re-initialize the reduction tables with the new values upon changing an engine parameter
-            initReductionDepthsTable();
+            //initReductionDepthsTable();
+            // ^^ uncomment before tuning
             
         }
         else if (line == "quit") {
