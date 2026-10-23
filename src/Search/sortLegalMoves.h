@@ -18,4 +18,6 @@
 #pragma once
 #include <src/Constants/Constants.h>
 
+int staticExchangeEvaluation(const Move& m);
+
 void sortLegalMoves(Move (*moves)[], bool sideToMove, int moveCount);
