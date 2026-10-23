@@ -196,6 +196,13 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		writeRepetitionTable(boardHash, true);
 
+		int seeScore = staticExchangeEvaluation(moveList[i]);
+
+		if (seeScore < 0)
+		{
+			reduction += (depth / 3) + (-seeScore / 300);
+		}
+
 		makeMove(moveList[i]);
 		ply++;
 
@@ -215,7 +222,7 @@ int alphaBeta(int depth, int alpha, int beta)
 			if (i >= 15) reduction = 4;
 			if (i >= 17) reduction = 5;
 			*/
-			reduction = lmrReductionTable[depth][i];
+			reduction += lmrReductionTable[depth][i];
 		}
 
 		if (reduction > 0)
