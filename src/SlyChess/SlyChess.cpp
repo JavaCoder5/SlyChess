@@ -119,6 +119,8 @@ int nullMoveReductionTable[MAX_DEPTH];
 
 int lmrReductionTable[MAX_DEPTH][256] = { 0 }; // max depth by max number of legal moves
 
+int seeReductionTable[MAX_DEPTH][10]; // max depth by see score (0-9 pawns)
+
 // Print bitboard as 8x8 grid (rank 8 at top, rank 1 at bottom).
 static void printBitboard(U64 bb)
 {
@@ -348,6 +350,15 @@ static void initReductionDepthsTable()
                 std::log(static_cast<float>(depth) * (lmrDepMul / lmrDepDiv)) 
                 *
                 std::log(static_cast<float>(index) * (lmrIndxMul / lmrIndxDiv));
+        }
+    }
+
+    // SEE reduction depths
+    for (int depth = 1; depth < MAX_DEPTH; depth++)
+    {
+        for (int seeScore = 0; seeScore < 10; seeScore++)
+        {
+            seeReductionTable[depth][seeScore] = (depth - 4) + std::log((seeScore * 100) / 300);
         }
     }
 

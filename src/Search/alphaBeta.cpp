@@ -23,6 +23,8 @@ extern int nullMoveReductionTable[MAX_DEPTH];
 
 extern int lmrReductionTable[MAX_DEPTH][256];
 
+extern int seeReductionTable[MAX_DEPTH][10];
+
 struct NullMoveUndoInfo {
 	int prevEPSquare;
 };
@@ -200,7 +202,8 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		if (seeScore < 0)
 		{
-			reduction += (depth / 4) + std::log(-seeScore / 300);
+			if (seeScore <= 900) reduction += seeReductionTable[depth][seeScore / 100];
+			else seeReductionTable[depth][9];
 		}
 
 		makeMove(moveList[i]);
