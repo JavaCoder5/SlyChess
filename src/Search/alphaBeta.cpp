@@ -200,7 +200,7 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		if (seeScore < 0)
 		{
-			reduction += (depth / 3) + (-seeScore / 300);
+			reduction += (depth / 4) + std::log(-seeScore / 300);
 		}
 
 		makeMove(moveList[i]);
