@@ -18,6 +18,7 @@
 #include "search.h"
 #include "sortLegalMoves.h"
 
+
 U64 abNodes = 0;
 U64 qNodes = 0;
 
@@ -72,6 +73,7 @@ void search(int depth)
 		int beta = INF;
 
 		abNodes = 0;
+		qNodes = 0;
 
 		auto searchStart = std::chrono::high_resolution_clock::now();
 
@@ -110,6 +112,8 @@ void search(int depth)
 
 		auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(searchEnd - searchStart).count();
 
+		U64 totalNodes = abNodes + qNodes;
+
 		if (currentBestScore > 99950)
 		{
 			lockPrintMutex();
@@ -118,9 +122,9 @@ void search(int depth)
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" ttHits " << ttHits <<
 				" ttMisses " << ttMisses <<
-				" nodes " << abNodes <<
+				" nodes " << totalNodes <<
 				" qnodes " << qNodes <<
-				" abnodes " << abNodes - qNodes <<
+				" abnodes " << abNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();
@@ -131,9 +135,9 @@ void search(int depth)
 			std::cout << "info depth " << iterativeDepth <<
 				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
-				" nodes " << abNodes <<
+				" nodes " << totalNodes <<
 				" qnodes " << qNodes <<
-				" abnodes " << abNodes - qNodes <<
+				" abnodes " << abNodes <<
 				" ttHits " << ttHits <<
 				" ttMisses " << ttMisses <<
 				" pv " << getPV() <<
@@ -148,9 +152,9 @@ void search(int depth)
 				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
 				" ttHits " << ttHits <<
 				" ttMisses " << ttMisses <<
-				" nodes " << abNodes <<
+				" nodes " << totalNodes <<
 				" qnodes " << qNodes <<
-				" abnodes " << abNodes - qNodes <<
+				" abnodes " << abNodes <<
 				" pv " << getPV() <<
 				std::endl << std::flush;
 			unlockPrintMutex();

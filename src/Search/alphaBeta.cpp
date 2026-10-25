@@ -56,7 +56,7 @@ void unmakeNullMove()
 
 int alphaBeta(int depth, int alpha, int beta)
 {
-	abNodes++;
+	++abNodes;
 
 	int originalAlpha = alpha;
 
