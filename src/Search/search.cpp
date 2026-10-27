@@ -75,6 +75,9 @@ void search(int depth)
 		abNodes = 0;
 		qNodes = 0;
 
+		ttHits = 0;
+		ttMisses = 0;
+
 		auto searchStart = std::chrono::high_resolution_clock::now();
 
 		for (int i = 0; i < moveCount; i++)
