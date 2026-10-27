@@ -117,6 +117,30 @@ int alphaBeta(int depth, int alpha, int beta)
 		++ttMisses;
 	}
 
+	// Null move pruning
+	bool isPvNode = (beta - alpha > 1);
+
+	bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
+
+	if (depth >= 4 &&
+		(turn ? (wKnightBB | wBishopBB | wRookBB | wQueenBB) : (bKnightBB | bBishopBB | bRookBB | bQueenBB)) &&
+		!hasNullMoved &&
+		!isPvNode &&
+		!isInCheck)
+	{
+		//int R = 3;
+
+		makeNullMove();
+		int nullScore = -alphaBeta(depth - 1 - nullMoveReductionTable[depth], -beta, -beta + 1);
+		unmakeNullMove();
+
+		if (nullScore >= beta)
+		{
+			pvLength[ply] = ply;
+			return beta;
+		}
+	}
+
 	Move moveList[256] = { 0 };
 	int moveCount = 0;
 	
@@ -162,8 +186,6 @@ int alphaBeta(int depth, int alpha, int beta)
 	}
 
 	Move bestMove = 0;
-
-	bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
 		
 	for (int i = 0; i < moveCount; i++)
 	{
@@ -173,28 +195,6 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		int reduction = 0;
 
-		// Null move pruning
-		bool isPvNode = (beta - alpha > 1);
-		
-		if (depth >= 4 &&
-			(turn ? (wKnightBB | wBishopBB | wRookBB | wQueenBB) : (bKnightBB | bBishopBB | bRookBB | bQueenBB)) &&
-			!hasNullMoved &&
-			!isPvNode &&
-			!isInCheck)
-		{
-			//int R = 3;
-
-			makeNullMove();
-			int nullScore = -alphaBeta(depth - 1 - nullMoveReductionTable[depth], -beta, -beta + 1);
-			unmakeNullMove();
-
-			if (nullScore >= beta)
-			{
-				pvLength[ply] = ply;
-				clearRepetitionTableEntry(boardHash);
-				return beta;
-			}
-		}
 
 		writeRepetitionTable(boardHash, true);
 
