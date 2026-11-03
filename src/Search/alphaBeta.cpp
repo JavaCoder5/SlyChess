@@ -202,8 +202,9 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		if (seeScore < 0)
 		{
-			if (seeScore <= 900) reduction += seeReductionTable[depth][seeScore / 100];
-			else seeReductionTable[depth][9];
+			int seeIndex = -seeScore / 100;
+			if (seeIndex > 9) seeIndex = 9;
+			reduction += seeReductionTable[depth][seeIndex];
 		}
 
 		makeMove(moveList[i]);

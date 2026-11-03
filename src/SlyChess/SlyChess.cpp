@@ -358,7 +358,8 @@ static void initReductionDepthsTable()
     {
         for (int seeScore = 0; seeScore < 10; seeScore++)
         {
-            seeReductionTable[depth][seeScore] = (depth - 4) + std::log((seeScore * 100) / 300);
+            seeReductionTable[depth][seeScore] = (depth - 4) +
+                std::log((std::max(seeScore, 1) * 100.0f) / 300.0f);
         }
     }
 

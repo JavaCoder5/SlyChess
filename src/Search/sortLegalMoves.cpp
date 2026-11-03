@@ -77,7 +77,8 @@ int staticExchangeEvaluation(const Move& m)
     }
 
     // Handle promotions
-    bool isPromotion = (flags >= 0xC000); // adjust based on your flag macros
+    bool isPromotion = flags == FLAG_PROMOTION_Q || flags == FLAG_PROMOTION_R ||
+        flags == FLAG_PROMOTION_B || flags == FLAG_PROMOTION_N;
     int promotedPiece = movingPiece;
     if (flags == FLAG_PROMOTION_Q) promotedPiece = 4;
     else if (flags == FLAG_PROMOTION_R) promotedPiece = 3;
