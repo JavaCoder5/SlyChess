@@ -67,12 +67,21 @@ int staticExchangeEvaluation(const Move& m)
     }
     if (movingPiece < 0) return 0;
 
-    // Find captured piece
     int capturedPiece = -1;
-    for (int piece = 0; piece < 6; ++piece) {
-        if (pieces[opponent][piece] & toBit) {
-            capturedPiece = piece;
-            break;
+    
+    // Check if the move is en-passant
+	if (flags == FLAG_EN_PASSANT) 
+    {
+        capturedPiece = 1; // Pawn is always captured in en-passant
+	}
+    else
+    {
+        // Find captured piece
+        for (int piece = 0; piece < 6; ++piece) {
+            if (pieces[opponent][piece] & toBit) {
+                capturedPiece = piece;
+                break;
+            }
         }
     }
 
