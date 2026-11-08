@@ -131,7 +131,7 @@ int alphaBeta(int depth, int alpha, int beta)
 		//int R = 3;
 
 		makeNullMove();
-		int nullScore = -alphaBeta(depth - 1 - nullMoveReductionTable[depth], -beta, -beta + 1);
+		int nullScore = -alphaBeta(depth - 1 - 3, -beta, -beta + 1);
 		unmakeNullMove();
 
 		if (nullScore >= beta)
@@ -204,7 +204,7 @@ int alphaBeta(int depth, int alpha, int beta)
 		{
 			int seeIndex = -seeScore / 100;
 			if (seeIndex > 9) seeIndex = 9;
-			reduction += seeReductionTable[depth][seeIndex];
+			reduction += 1;
 		}
 
 		makeMove(moveList[i]);
@@ -226,7 +226,7 @@ int alphaBeta(int depth, int alpha, int beta)
 			if (i >= 15) reduction = 4;
 			if (i >= 17) reduction = 5;
 			*/
-			reduction += lmrReductionTable[depth][i];
+			reduction += 1;
 		}
 
 		if (reduction > 0)
