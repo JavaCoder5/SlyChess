@@ -231,7 +231,7 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		if (reduction > 0)
 		{
-			score = -alphaBeta(depth - 1 - reduction, -alpha - 5, -alpha);
+			score = -alphaBeta(depth - 1 - reduction, -alpha - 1, -alpha);
 
 			if (score > alpha)
 				score = -alphaBeta(depth - 1, -beta, -alpha);
