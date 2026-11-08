@@ -63,6 +63,19 @@ void search(int depth)
 		return;
 	}
 
+	Move ttMove = 0;
+	int ttScore = 0;
+	U8 ttDepth = 0;
+	U8 ttFlag = 0;
+
+	if (probe_tt(boardHash, ttMove, ttScore, ttDepth, ttFlag))
+	{
+		if (ttMove != 0 && ttMove != moveList[0])
+		{
+			movePVToFront(&moveList, moveCount, ttMove);
+		}
+	}
+
 	for (int iterativeDepth = 1; iterativeDepth <= depth; iterativeDepth++)
 	{
 		if (stopSearch) break;
