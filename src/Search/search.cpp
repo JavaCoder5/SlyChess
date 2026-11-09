@@ -17,13 +17,14 @@
 
 #include "search.h"
 #include "sortLegalMoves.h"
+#include <algorithm>
 
 
 U64 abNodes = 0;
 U64 qNodes = 0;
 
-Move pvTable[MAX_DEPTH][MAX_DEPTH];
-int pvLength[MAX_DEPTH];
+Move pvTable[MAX_PLY][MAX_PLY] = { 0 };
+int pvLength[MAX_PLY + 1] = { 0 };
 
 static std::string getPV()
 {
@@ -44,6 +45,7 @@ U64 ttMisses = 0;
 void search(int depth)
 {
 	searchRunning = true;
+	ensureRepetitionHistory(boardHash);
 
 	Move moveList[256] = { 0 };
 	int moveCount = 0;
@@ -60,6 +62,17 @@ void search(int depth)
 		lockPrintMutex();
 		std::cout << "bestmove 0000" << std::endl << std::flush;
 		unlockPrintMutex();
+		searchRunning = false;
+		return;
+	}
+
+	if (halfmoveClock >= 100 || isRepetition(boardHash, halfmoveClock))
+	{
+		lockPrintMutex();
+		std::cout << "info depth 0 score cp 0 nodes 0 pv" << std::endl;
+		std::cout << "bestmove " << moveToUCI(moveList[0]) << std::endl << std::flush;
+		unlockPrintMutex();
+		searchRunning = false;
 		return;
 	}
 
@@ -76,11 +89,12 @@ void search(int depth)
 		}
 	}
 
-	for (int iterativeDepth = 1; iterativeDepth <= depth; iterativeDepth++)
+	int searchDepth = std::clamp(depth, 1, MAX_DEPTH - 1);
+	for (int iterativeDepth = 1; iterativeDepth <= searchDepth; iterativeDepth++)
 	{
 		if (stopSearch) break;
 
-		pvLength[0] = 0;
+		resetPVNode(0);
 
 		int alpha = MINF;
 		int beta = INF;
@@ -97,13 +111,13 @@ void search(int depth)
 		{
 			if (moveList[i] == 0) continue;
 
-			writeRepetitionTable(boardHash, true);
 			makeMove(moveList[i]);
 			ply++;
+			pushRepetitionPosition(boardHash);
 			int score = -alphaBeta(iterativeDepth - 1, -beta, -alpha);
+			popRepetitionPosition();
 			ply--;
 			unmakeMove(moveList[i]);
-			clearRepetitionTableEntry(boardHash);
 
 			if ((score == MINF) && stopSearch) break;
 
@@ -113,14 +127,7 @@ void search(int depth)
 				currentBestScore = score;
 				currentBest = moveList[i];
 
-				// Only PV nodes update the PV table
-				pvTable[ply][ply] = moveList[i];
-
-				// Copy child PV
-				for (int j = ply + 1; j < pvLength[ply + 1]; j++)
-					pvTable[ply][j] = pvTable[ply + 1][j];
-
-				pvLength[ply] = pvLength[ply + 1];
+				updatePV(0, moveList[i]);
 			}
 		}
 
@@ -177,8 +184,6 @@ void search(int depth)
 		}
 
 		movePVToFront(&moveList, moveCount, currentBest);
-
-		clearRepetitionTableEntry(boardHash);
 
 	}
 

@@ -16,31 +16,31 @@
 */
 
 #include "writeRepetitionTable.h"
-#include <iostream>
 
-void writeRepetitionTable(U64 boardHash, bool isOpen)
+std::vector<U64> repetitionHistory;
+
+void resetRepetitionHistory()
 {
-	int index = boardHash & REPETITION_TABLE_MASK;
-	if (repetition_table[index].key == 0)
-	{
-		repetition_table[index].key = boardHash;
-		repetition_table[index].isOpen = isOpen;
-	}
-	else if (repetition_table[index].key == boardHash)
-	{
-		repetition_table[index].isOpen = isOpen;
-	}
-	else
-	{
-		// Collision: Overwrite the existing entry
-		repetition_table[index].key = boardHash;
-		repetition_table[index].isOpen = isOpen;
-	}
-
+	repetitionHistory.clear();
+	repetitionHistory.reserve(MAX_UNDO + 256);
 }
 
-void clearRepetitionTableEntry(U64 boardHash)
+void pushRepetitionPosition(U64 key)
 {
-	int index = boardHash & REPETITION_TABLE_MASK;
-	repetition_table[index] = RepetitionEntry();
+	repetitionHistory.push_back(key);
+}
+
+void popRepetitionPosition()
+{
+	if (!repetitionHistory.empty())
+		repetitionHistory.pop_back();
+}
+
+void ensureRepetitionHistory(U64 key)
+{
+	if (repetitionHistory.empty() || repetitionHistory.back() != key)
+	{
+		resetRepetitionHistory();
+		pushRepetitionPosition(key);
+	}
 }

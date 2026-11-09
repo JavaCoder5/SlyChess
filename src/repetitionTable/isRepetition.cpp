@@ -16,15 +16,23 @@
 */
 
 #include "isRepetition.h"
+#include "writeRepetitionTable.h"
+#include <algorithm>
 
-bool isRepetition(U64 key)
+bool isRepetition(U64 key, int halfmoveClock)
 {
-	int index = key & REPETITION_TABLE_MASK;
+    if (repetitionHistory.empty() || repetitionHistory.back() != key)
+        return false;
 
-	if (repetition_table[index].key == key) {
-		if (repetition_table[index].isOpen)
-			return true;
-	}
+    int current = static_cast<int>(repetitionHistory.size()) - 1;
+    int first = current - std::min(halfmoveClock, current);
+    int occurrences = 0;
 
-	return false;
+    for (int index = current; index >= first; index -= 2)
+    {
+        if (repetitionHistory[index] == key && ++occurrences >= 3)
+            return true;
+    }
+
+    return false;
 }

@@ -57,6 +57,8 @@ void unmakeNullMove()
 int alphaBeta(int depth, int alpha, int beta)
 {
 	++abNodes;
+	Move pvMove = getPVMove(ply);
+	resetPVNode(ply);
 
 	int originalAlpha = alpha;
 
@@ -65,20 +67,27 @@ int alphaBeta(int depth, int alpha, int beta)
 	if (abNodes & 8192 && stopSearch)
 		return INF;
 
-	//if (depth == 0) return evaluate();
+	if (ply >= MAX_PLY)
+		return quiescence(alpha, beta);
+
 	int bestScore = MINF;
 
-	if (isRepetition(boardHash))
+	if (!hasNullMoved && (halfmoveClock >= 100 || isRepetition(boardHash, halfmoveClock)))
 	{
-		pvLength[ply] = ply;
+		Move drawMoves[256] = { 0 };
+		int drawMoveCount = 0;
+		generateLegalMoves(&drawMoves, turn, &drawMoveCount);
+
+		if (drawMoveCount == 0)
+		{
+			int kingSquare = count_trailing_zeros((turn ? wKingBB : bKingBB));
+			return isSquareAttacked(kingSquare, !turn) ? MATE + ply : 0;
+		}
+
 		return 0;
 	}
 
-	if (halfmoveClock >= 100)
-	{
-		pvLength[ply] = ply;
-		return 0; // Draw by 50-move rule
-	}
+	bool isPvNode = (beta - alpha > 1);
 
 	int ttScore = 0;
 	U8 ttDepth = 0;
@@ -88,7 +97,7 @@ int alphaBeta(int depth, int alpha, int beta)
 	if (probe_tt(boardHash, ttMove, ttScore, ttDepth, ttFlag))
 	{
 		++ttHits;
-		if (ttDepth >= depth)
+		if (ttDepth >= depth && !isPvNode && halfmoveClock + depth < 100)
 		{
 			// Adjust mate scores for current ply
 			int correctedScore = ttScore;
@@ -97,17 +106,14 @@ int alphaBeta(int depth, int alpha, int beta)
 
 			if (ttFlag == TT_EXACT)
 			{
-				pvLength[ply] = ply;
 				return correctedScore;
 			}
 			if (ttFlag == TT_ALPHA && correctedScore <= alpha)
 			{
-				pvLength[ply] = ply;
 				return correctedScore;
 			}
 			if (ttFlag == TT_BETA && correctedScore >= beta)
 			{
-				pvLength[ply] = ply;
 				return correctedScore;
 			}
 		}
@@ -117,12 +123,10 @@ int alphaBeta(int depth, int alpha, int beta)
 		++ttMisses;
 	}
 
-	// Null move pruning
-	bool isPvNode = (beta - alpha > 1);
-
 	bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
 
 	if (depth >= 4 &&
+		halfmoveClock + depth < 100 &&
 		(turn ? (wKnightBB | wBishopBB | wRookBB | wQueenBB) : (bKnightBB | bBishopBB | bRookBB | bQueenBB)) &&
 		!hasNullMoved &&
 		!isPvNode &&
@@ -136,7 +140,6 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		if (nullScore >= beta)
 		{
-			pvLength[ply] = ply;
 			return beta;
 		}
 	}
@@ -147,8 +150,6 @@ int alphaBeta(int depth, int alpha, int beta)
 	generateLegalMoves(&moveList, turn, &moveCount);
 
 	sortLegalMoves(&moveList, turn, moveCount);
-
-	Move pvMove = pvTable[ply][ply];
 
 	if (pvMove != 0)
 	{
@@ -196,8 +197,6 @@ int alphaBeta(int depth, int alpha, int beta)
 		int reduction = 0;
 
 
-		writeRepetitionTable(boardHash, true);
-
 		int seeScore = staticExchangeEvaluation(moveList[i]);
 
 		if (seeScore < 0)
@@ -209,6 +208,7 @@ int alphaBeta(int depth, int alpha, int beta)
 
 		makeMove(moveList[i]);
 		ply++;
+		pushRepetitionPosition(boardHash);
 
 		isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
 
@@ -241,10 +241,9 @@ int alphaBeta(int depth, int alpha, int beta)
 			score = -alphaBeta(depth - 1, -beta, -alpha);
 		}
 
+		popRepetitionPosition();
 		ply--;
 		unmakeMove(moveList[i]);
-
-		clearRepetitionTableEntry(boardHash);
 
 		if ((score == MINF) && stopSearch)
 			return INF;
@@ -254,19 +253,11 @@ int alphaBeta(int depth, int alpha, int beta)
 			bestScore = score;
 			bestMove = moveList[i];
 
-			// Only PV nodes update the PV table
-			if (score > alpha && score < beta && !hasNullMoved) {
-				pvTable[ply][ply] = moveList[i];
-
-				// Copy child PV
-				for (int j = ply + 1; j < pvLength[ply + 1]; j++)
-					pvTable[ply][j] = pvTable[ply + 1][j];
-			
-				pvLength[ply] = pvLength[ply + 1];
-			}
-
 			if (score > alpha)
 			{
+				if (!hasNullMoved)
+					updatePV(ply, moveList[i]);
+
 				alpha = score;
 
 				if (score >= beta)

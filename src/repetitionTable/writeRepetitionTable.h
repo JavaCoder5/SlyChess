@@ -17,9 +17,11 @@
 
 #pragma once
 #include <src/Constants/Constants.h>
+#include <vector>
 
-extern RepetitionEntry repetition_table[REPETITION_TABLE_SIZE];
+extern std::vector<U64> repetitionHistory;
 
-void writeRepetitionTable(U64 boardHash, bool isOpen);
-
-void clearRepetitionTableEntry(U64 boardHash);
+void resetRepetitionHistory();
+void pushRepetitionPosition(U64 key);
+void popRepetitionPosition();
+void ensureRepetitionHistory(U64 key);

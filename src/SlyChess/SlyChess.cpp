@@ -46,6 +46,7 @@
 #include <src/misc/printMutex.h>
 #include <src/NNUE/nnue.h>
 #include <src/uci/uciOptions.h>
+#include <src/repetitionTable/writeRepetitionTable.h>
 #include <filesystem>
 
 #if defined(_WIN32)
@@ -106,8 +107,6 @@ std::thread searchThread;
 std::thread timerThread;
 
 TTEntry transposition_table[TT_SIZE];
-
-RepetitionEntry repetition_table[REPETITION_TABLE_SIZE];
 
 U64 boardHash;
 
@@ -419,7 +418,9 @@ int main() {
                 transposition_table[i] = TTEntry(); // reset to default
             }
 
+            resetRepetitionHistory();
             setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+            pushRepetitionPosition(boardHash);
         }
         else if (line.rfind("position", 0) == 0) {
             // Always stop any running search before changing the board
@@ -432,11 +433,13 @@ int main() {
             while (historyTop > 0)
                 history[--historyTop] = UndoInfo(); // reset to default to avoid residual data and memory overflows
 
+            resetRepetitionHistory();
+
             if (sub == "startpos") {
                 // set to standard start position
                 setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
-                writeRepetitionTable(boardHash, true); // Update repetition table after setting starting position
+                pushRepetitionPosition(boardHash);
 
                 // Check for optional moves following startpos
                 std::string token;
@@ -444,8 +447,10 @@ int main() {
                     std::string mv;
                     while (ss >> mv) {
                         Move m = UCIToMove(mv);
-                        if (m != 0) makeMove(m);
-						writeRepetitionTable(boardHash, true); // Update repetition table after every move
+                        if (m != 0) {
+                            makeMove(m);
+                            pushRepetitionPosition(boardHash);
+                        }
                     }
                 }
             }
@@ -474,14 +479,16 @@ int main() {
                         setPositionFromFEN(fenString);
                     }
 
-                    writeRepetitionTable(boardHash, true);
+                    pushRepetitionPosition(boardHash);
 
                     // If there are extra tokens and the next token is 'moves', apply the moves that follow
                     if (parts.size() > fenTokens && parts[fenTokens] == "moves") {
                         for (size_t i = fenTokens + 1; i < parts.size(); ++i) {
                             Move m = UCIToMove(parts[i]);
-                            if (m != 0) makeMove(m);
-                            writeRepetitionTable(boardHash, true); // Update repetition table after every move
+                            if (m != 0) {
+                                makeMove(m);
+                                pushRepetitionPosition(boardHash);
+                            }
                         }
                     }
                 }

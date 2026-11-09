@@ -49,17 +49,43 @@ static void printPosition()
 int quiescence(int alpha, int beta)
 {
     ++qNodes;
-    // Leaf PV length
-    pvLength[ply] = ply;
+
+    resetPVNode(ply);
+
+    bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
+
+    if (halfmoveClock >= 100 || (!hasNullMoved && isRepetition(boardHash, halfmoveClock)))
+    {
+        Move drawMoves[256] = { 0 };
+        int drawMoveCount = 0;
+        generateLegalMoves(&drawMoves, turn, &drawMoveCount);
+
+        if (drawMoveCount == 0)
+            return isInCheck ? MATE + ply : 0;
+
+        return 0;
+    }
 
     // Evaluate the position using the accumulators maintained by makeMove.
     int standPat = g_nnue_network->evaluate(wAccumulator, bAccumulator);
     standPat *= turn ? 1 : -1; // Adjust score based on whose turn it is
 
-    if (standPat >= beta)
-        return beta;
+    if (ply >= MAX_PLY)
+    {
+        if (isInCheck)
+        {
+            Move legalMoves[256] = { 0 };
+            int legalMoveCount = 0;
+            generateLegalMoves(&legalMoves, turn, &legalMoveCount);
+            if (legalMoveCount == 0)
+                return MATE + ply;
+        }
 
-	bool isInCheck = isSquareAttacked(count_trailing_zeros((turn ? wKingBB : bKingBB)), !turn);
+        return standPat;
+    }
+
+    if (!isInCheck && standPat >= beta)
+        return beta;
 
     if (!isInCheck)
     {
@@ -72,7 +98,7 @@ int quiescence(int alpha, int beta)
             return alpha;
     }
 
-    if (standPat > alpha)
+    if (!isInCheck && standPat > alpha)
         alpha = standPat;
 
     Move moveList[256] = { 0 };
@@ -84,11 +110,19 @@ int quiescence(int alpha, int beta)
         generateLegalCaptures(&moveList, turn, &moveCount);
 
     if (moveCount == 0)
-        return standPat; // Avoids redundant evaluate() call
+    {
+        if (isInCheck)
+            return MATE + ply;
+
+        Move legalMoves[256] = { 0 };
+        int legalMoveCount = 0;
+        generateLegalMoves(&legalMoves, turn, &legalMoveCount);
+        return legalMoveCount == 0 ? 0 : standPat;
+    }
 
     sortLegalMoves(&moveList, turn, moveCount);
 
-    int bestScore = standPat; // Track the best score properly
+    int bestScore = isInCheck ? MINF : standPat;
 
     for (int i = 0; i < moveCount; i++)
     {
@@ -116,7 +150,9 @@ int quiescence(int alpha, int beta)
 
         makeMove(moveList[i]);
         ++ply;
+        pushRepetitionPosition(boardHash);
         int score = -quiescence(-beta, -alpha);
+        popRepetitionPosition();
         --ply;
         unmakeMove(moveList[i]);
 
@@ -127,17 +163,9 @@ int quiescence(int alpha, int beta)
             if (score > alpha)
             {
                 alpha = score;
-                
-                // Only PV nodes update the PV table
-                if (score < beta) {
-                    pvTable[ply][ply] = moveList[i];
 
-                    // Copy child PV
-                    for (int j = ply + 1; j < pvLength[ply + 1]; j++)
-                        pvTable[ply][j] = pvTable[ply + 1][j];
-
-                    pvLength[ply] = pvLength[ply + 1];
-                }
+                if (!hasNullMoved)
+                    updatePV(ply, moveList[i]);
             }
         }
 
