@@ -23,6 +23,7 @@
 #include "quiescence.h"
 #include "pv.h"
 #include <src/transpositionTable/probe_tt.h>
+#include <src/Movegen/givesCheck.h>
 #include <src/transpositionTable/write_tt.h>
 #include "movePVToFront.h"
 #include <src/Helpers/wasCapture.h>

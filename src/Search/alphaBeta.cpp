@@ -25,6 +25,10 @@ extern int lmrReductionTable[MAX_DEPTH][256];
 
 extern int seeReductionTable[MAX_DEPTH][10];
 
+// Futility pruning margin at frontier nodes (in centipawns)
+// Static eval + margin must be >= alpha to avoid pruning quiet moves
+constexpr int FUTILITY_MARGIN = 322;
+
 struct NullMoveUndoInfo {
 	int prevEPSquare;
 };
@@ -187,17 +191,61 @@ int alphaBeta(int depth, int alpha, int beta)
 	}
 
 	Move bestMove = 0;
-		
+
+	// Futility pruning preparation at frontier nodes (depth == 1)
+	// Only apply to non-PV nodes when not in check
+	int staticEval = 0;
+	bool canUseFutilityPruning = false;
+	if (depth == 1 && !isPvNode && !isInCheck)
+	{
+		staticEval = g_nnue_network->evaluate(wAccumulator, bAccumulator) * (turn ? 1 : -1);
+		canUseFutilityPruning = true;
+	}
+
 	for (int i = 0; i < moveCount; i++)
 	{
 		if (moveList[i] == 0) continue;
+
+		Move move = moveList[i];
+
+		// Futility pruning at depth==1: skip quiet moves that cannot improve alpha
+		// Never prune moves that give check - they must be searched
+		if (canUseFutilityPruning)
+		{
+			// Extract move components
+			int toSquare = (move >> 6) & 0x3F;
+			U64 toSquareMask = 1ULL << toSquare;
+
+			// Determine if move is a capture or promotion
+			U64 opponentPieces = turn ? (bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB) 
+									  : (wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB);
+			bool isCapture = (toSquareMask & opponentPieces) != 0;
+
+			// Check promotion flag (bits 12-15)
+			int promotionFlag = (move >> 12) & 0xF;
+			bool isPromotion = (promotionFlag >= 0x1 && promotionFlag <= 0x4);  // FLAG_PROMOTION_Q/R/B/N
+
+			// Check if this move gives check to opponent
+			bool movingIntoCheck = givesCheck(move);
+
+			// Skip quiet moves at depth==1 if eval + margin cannot reach alpha
+			// BUT never prune moves that give check - they're too tactically important
+			if (!isCapture && 
+				!isPromotion && 
+				!movingIntoCheck && 
+				(staticEval + FUTILITY_MARGIN < alpha) &&
+				(i > 1))
+			{
+				continue;
+			}
+		}
 
 		int score;
 
 		int reduction = 0;
 
 
-		int seeScore = staticExchangeEvaluation(moveList[i]);
+		int seeScore = staticExchangeEvaluation(move);
 
 		if (seeScore < 0)
 		{
@@ -206,7 +254,7 @@ int alphaBeta(int depth, int alpha, int beta)
 			reduction += 1;
 		}
 
-		makeMove(moveList[i]);
+		makeMove(move);
 		ply++;
 		pushRepetitionPosition(boardHash);
 
