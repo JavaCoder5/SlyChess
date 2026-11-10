@@ -380,6 +380,7 @@ int main() {
     }
 
     addUciOption("Move Overhead", UCI_OPTION_SPIN, 40, 0, 5000);
+    addUciOption("UCI_ShowWDL", UCI_OPTION_CHECK, 0);
     //addUciOption("lmrdepmul", UCI_OPTION_SPIN, 1000, 1, 1000);
     //addUciOption("lmrdepdiv", UCI_OPTION_SPIN, 500, 1, 1000);
     //addUciOption("lmrindxmul", UCI_OPTION_SPIN, 500, 1, 1000);
@@ -1005,8 +1006,8 @@ int main() {
                 UciOptionType optionType = getUciOptionType(optionName);
                 switch (optionType)
                 {
-                case UCI_OPTION_BUTTON:
-                    // Handle button option (click)
+                case UCI_OPTION_CHECK:
+                    // Handle check option
                     if (optionValue == "true")
                         setUciOptionValue(optionName, true);
                     else

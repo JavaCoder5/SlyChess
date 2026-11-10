@@ -17,6 +17,8 @@
 
 #include "search.h"
 #include "sortLegalMoves.h"
+#include "wdlCalculation.h"
+#include <src/uci/uciOptions.h>
 #include <algorithm>
 
 
@@ -140,46 +142,67 @@ void search(int depth)
 		if (currentBestScore > 99950)
 		{
 			lockPrintMutex();
-			std::cout << "info depth " << iterativeDepth <<
-				" score mate " << (-MATE - currentBestScore) / 2 + 1 <<
-				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
-				" ttHits " << ttHits <<
-				" ttMisses " << ttMisses <<
-				" nodes " << totalNodes <<
-				" qnodes " << qNodes <<
-				" abnodes " << abNodes <<
-				" pv " << getPV() <<
-				std::endl << std::flush;
+			std::string outputLine = "info depth " + std::to_string(iterativeDepth) +
+				" score mate " + std::to_string((-MATE - currentBestScore) / 2 + 1) +
+				" nps " + std::to_string((abNodes * 1000000000) / (duration > 0 ? duration : 1)) +
+				" ttHits " + std::to_string(ttHits) +
+				" ttMisses " + std::to_string(ttMisses) +
+				" nodes " + std::to_string(totalNodes) +
+				" qnodes " + std::to_string(qNodes) +
+				" abnodes " + std::to_string(abNodes);
+
+			if (getUciOptionValue("UCI_ShowWDL") != "0") {
+				WDLStats wdl = calculateWDL(currentBestScore);
+				outputLine += " wdl " + std::to_string(wdl.wins) + " " + 
+					std::to_string(wdl.draws) + " " + std::to_string(wdl.losses);
+			}
+
+			outputLine += " pv " + getPV();
+			std::cout << outputLine << std::endl << std::flush;
 			unlockPrintMutex();
 		}
 		else if (currentBestScore < -99950)
 		{
 			lockPrintMutex();
-			std::cout << "info depth " << iterativeDepth <<
-				" score mate " << (MATE - currentBestScore) / 2 - 1 <<
-				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
-				" nodes " << totalNodes <<
-				" qnodes " << qNodes <<
-				" abnodes " << abNodes <<
-				" ttHits " << ttHits <<
-				" ttMisses " << ttMisses <<
-				" pv " << getPV() <<
-				std::endl << std::flush;
+			std::string outputLine = "info depth " + std::to_string(iterativeDepth) +
+				" score mate " + std::to_string((MATE - currentBestScore) / 2 - 1) +
+				" nps " + std::to_string((abNodes * 1000000000) / (duration > 0 ? duration : 1)) +
+				" nodes " + std::to_string(totalNodes) +
+				" qnodes " + std::to_string(qNodes) +
+				" abnodes " + std::to_string(abNodes) +
+				" ttHits " + std::to_string(ttHits) +
+				" ttMisses " + std::to_string(ttMisses);
+
+			if (getUciOptionValue("UCI_ShowWDL") != "0") {
+				WDLStats wdl = calculateWDL(currentBestScore);
+				outputLine += " wdl " + std::to_string(wdl.wins) + " " + 
+					std::to_string(wdl.draws) + " " + std::to_string(wdl.losses);
+			}
+
+			outputLine += " pv " + getPV();
+			std::cout << outputLine << std::endl << std::flush;
 			unlockPrintMutex();
 		}
 		else
 		{
 			lockPrintMutex();
-			std::cout << "info depth " << iterativeDepth <<
-				" score cp " << currentBestScore <<
-				" nps " << (abNodes * 1000000000) / (duration > 0 ? duration : 1) <<
-				" ttHits " << ttHits <<
-				" ttMisses " << ttMisses <<
-				" nodes " << totalNodes <<
-				" qnodes " << qNodes <<
-				" abnodes " << abNodes <<
-				" pv " << getPV() <<
-				std::endl << std::flush;
+			std::string outputLine = "info depth " + std::to_string(iterativeDepth) +
+				" score cp " + std::to_string(currentBestScore) +
+				" nps " + std::to_string((abNodes * 1000000000) / (duration > 0 ? duration : 1)) +
+				" ttHits " + std::to_string(ttHits) +
+				" ttMisses " + std::to_string(ttMisses) +
+				" nodes " + std::to_string(totalNodes) +
+				" qnodes " + std::to_string(qNodes) +
+				" abnodes " + std::to_string(abNodes);
+
+			if (getUciOptionValue("UCI_ShowWDL") != "0") {
+				WDLStats wdl = calculateWDL(currentBestScore);
+				outputLine += " wdl " + std::to_string(wdl.wins) + " " + 
+					std::to_string(wdl.draws) + " " + std::to_string(wdl.losses);
+			}
+
+			outputLine += " pv " + getPV();
+			std::cout << outputLine << std::endl << std::flush;
 			unlockPrintMutex();
 		}
 
