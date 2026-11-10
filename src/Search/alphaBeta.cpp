@@ -277,16 +277,42 @@ int alphaBeta(int depth, int alpha, int beta)
 			reduction += 1;
 		}
 
-		if (reduction > 0)
+		// Principal Variation Search (PVS)
+		// First move is searched with full window [alpha, beta]
+		// Subsequent moves are searched with null-width window [-alpha-1, -alpha]
+		// If the null-window scout search returns > alpha, we re-search with full window
+		if (i == 0)
 		{
-			score = -alphaBeta(depth - 1 - reduction, -alpha - 1, -alpha);
+			// First move: use full window search
+			if (reduction > 0)
+			{
+				score = -alphaBeta(depth - 1 - reduction, -beta, -alpha);
 
-			if (score > alpha)
+				if (score > alpha)
+					score = -alphaBeta(depth - 1, -beta, -alpha);
+			}
+			else
+			{
 				score = -alphaBeta(depth - 1, -beta, -alpha);
+			}
 		}
 		else
 		{
-			score = -alphaBeta(depth - 1, -beta, -alpha);
+			// Subsequent moves: use null-width window for scout search
+			if (reduction > 0)
+			{
+				score = -alphaBeta(depth - 1 - reduction, -alpha - 1, -alpha);
+
+				if (score > alpha && score < beta)
+					score = -alphaBeta(depth - 1, -beta, -alpha);
+			}
+			else
+			{
+				score = -alphaBeta(depth - 1, -alpha - 1, -alpha);
+
+				if (score > alpha && score < beta)
+					score = -alphaBeta(depth - 1, -beta, -alpha);
+			}
 		}
 
 		popRepetitionPosition();
