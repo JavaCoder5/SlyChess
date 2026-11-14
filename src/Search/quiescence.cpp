@@ -67,8 +67,7 @@ int quiescence(int alpha, int beta)
     }
 
     // Evaluate the position using the accumulators maintained by makeMove.
-    int standPat = g_nnue_network->evaluate(wAccumulator, bAccumulator);
-    standPat *= turn ? 1 : -1; // Adjust score based on whose turn it is
+    int standPat = evaluate_side_to_move(*g_nnue_network, turn, wAccumulator, bAccumulator);
 
     if (ply >= MAX_PLY)
     {

@@ -48,10 +48,19 @@ if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET SlyChess PROPERTY CXX_STANDARD 20)
 endif()
 
-add_custom_command(TARGET SlyChess POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-    "${PROJECT_SOURCE_DIR}/nnue/weights/2026-10-06/nnue_weights.bin"
-    $<TARGET_FILE_DIR:SlyChess>
-)
+# HalfKAv2_hm 22528->1024x2->1 network: quantised.bin from JavaCoder5/slychess-nnue-trainer,
+# renamed to nnue_weights.bin. (nnue/weights/2026-10-06 is the old Chess768 net and won't load.)
+set(SLYCHESS_NNUE_FILE "${PROJECT_SOURCE_DIR}/nnue/weights/halfka_v2_hm_1024/nnue_weights.bin"
+    CACHE FILEPATH "NNUE weights copied next to the SlyChess executable")
+if (EXISTS "${SLYCHESS_NNUE_FILE}")
+  add_custom_command(TARGET SlyChess POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy
+      "${SLYCHESS_NNUE_FILE}"
+      $<TARGET_FILE_DIR:SlyChess>/nnue_weights.bin
+  )
+else()
+  message(WARNING "No NNUE weights at ${SLYCHESS_NNUE_FILE}. SlyChess needs nnue_weights.bin "
+                  "(HalfKAv2_hm, from slychess-nnue-trainer) next to the executable to start.")
+endif()
 
 # TODO: Add tests and install targets if needed.
