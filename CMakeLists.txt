@@ -21,7 +21,7 @@ project ("SlyChess")
 # custom target to copy the weights folder to the build directory
 add_custom_target(CopyWeights ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${PROJECT_SOURCE_DIR}/nnue/weights/2026-10-06"
+    "${PROJECT_SOURCE_DIR}/nnue/weights/2026-11-14"
     $<TARGET_FILE_DIR:SlyChess>
     COMMENT "Copying NNUE weights to build directory..."
 )
@@ -50,7 +50,7 @@ endif()
 
 # HalfKAv2_hm 22528->1024x2->1 network: quantised.bin from JavaCoder5/slychess-nnue-trainer,
 # renamed to nnue_weights.bin. (nnue/weights/2026-10-06 is the old Chess768 net and won't load.)
-set(SLYCHESS_NNUE_FILE "${PROJECT_SOURCE_DIR}/nnue/weights/halfka_v2_hm_1024/nnue_weights.bin"
+set(SLYCHESS_NNUE_FILE "${PROJECT_SOURCE_DIR}/nnue/weights/2026-11-14/nnue_weights.bin"
     CACHE FILEPATH "NNUE weights copied next to the SlyChess executable")
 if (EXISTS "${SLYCHESS_NNUE_FILE}")
   add_custom_command(TARGET SlyChess POST_BUILD
