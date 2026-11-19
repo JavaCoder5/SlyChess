@@ -19,6 +19,9 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#if defined(_MSC_VER) && !defined(__clang__)
+#include <xmmintrin.h>
+#endif
 #include <cstring>
 #include <src/Constants/Macros.h>
 #if defined(SLYCHESS_HAS_AVX2)
@@ -210,6 +213,16 @@ int32_t Network::evaluate(const Accumulator& us, const Accumulator& them) const 
 // Accumulator stack and refresh cache
 // ---------------------------------------------------------------------------
 namespace {
+    inline void prefetch_row(const int16_t* row) {
+        for (std::size_t offset = 0; offset < HIDDEN_SIZE; offset += 64 / sizeof(int16_t)) {
+#if defined(_MSC_VER) && !defined(__clang__)
+            _mm_prefetch(reinterpret_cast<const char*>(row + offset), _MM_HINT_T0);
+#else
+            __builtin_prefetch(row + offset);
+#endif
+        }
+    }
+
     constexpr int STACK_SIZE = 8192 + 1; // MAX_UNDO moves on top of the root position
 
     struct StackEntry {
@@ -343,6 +356,14 @@ void nnue_push_move(const BoardDelta& delta, int whiteKingSquare, int blackKingS
             const PieceChange& pc = delta.removed[k];
             e.subs[perspective][e.numSubs[perspective]++] =
                 static_cast<uint32_t>(halfka_feature_index(white, pc.white, pc.type, pc.square, king));
+        }
+        // Start loading the weight rows now; they're 2 KB each in a 46 MB table and
+        // rarely cached, and the evaluation that needs them usually comes soon after.
+        if (g_nnue_network) {
+            for (int k = 0; k < e.numAdds[perspective]; ++k)
+                prefetch_row(g_nnue_network->feature_weights[e.adds[perspective][k]].vals);
+            for (int k = 0; k < e.numSubs[perspective]; ++k)
+                prefetch_row(g_nnue_network->feature_weights[e.subs[perspective][k]].vals);
         }
     }
 }

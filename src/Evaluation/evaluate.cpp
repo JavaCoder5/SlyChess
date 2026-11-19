@@ -17,6 +17,11 @@
 
 #include "evaluate.h"
 #include <src/NNUE/nnue.h>
+#include <cstddef>
+
+#ifndef EVAL_CACHE_BITS
+#define EVAL_CACHE_BITS 14 // 16K entries (256 KB); larger tables were slower in testing
+#endif
 
 inline constexpr int sideToMoveBonus = 20;
 
@@ -420,13 +425,36 @@ int evaluate()
 	return (turn ? eval : -eval);
 }
 
+extern U64 boardHash;
+
+namespace {
+    // NNUE evaluation cache. The search reaches the same position through different
+    // move orders (especially in quiescence); a hit skips both the accumulator update
+    // and the output layer. The key is the full 64-bit Zobrist hash, which covers the
+    // pieces and side to move (all the evaluation depends on), so a hit returns the
+    // same score the network would.
+    struct EvalCacheEntry {
+        U64 key;
+        int32_t eval;
+        uint32_t used;
+    };
+    constexpr std::size_t EVAL_CACHE_ENTRIES = 1 << EVAL_CACHE_BITS;
+    EvalCacheEntry evalCache[EVAL_CACHE_ENTRIES];
+}
+
 int nnueEvaluate()
 {
+    EvalCacheEntry& entry = evalCache[boardHash & (EVAL_CACHE_ENTRIES - 1)];
+    if (entry.used && entry.key == boardHash)
+        return entry.eval;
+
     const uint64_t pieceBBs[2][6] = {
         { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
         { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
     };
-    return nnue_evaluate(turn, pieceBBs);
+    const int eval = nnue_evaluate(turn, pieceBBs);
+    entry = { boardHash, eval, 1 };
+    return eval;
 }
 
 void nnueResetToBoard()
