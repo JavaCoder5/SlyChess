@@ -21,3 +21,6 @@
 int staticExchangeEvaluation(const Move& m);
 
 void sortLegalMoves(Move (*moves)[], bool sideToMove, int moveCount);
+
+// Descending-score order, identical to selection sort with first-max swaps.
+void orderMovesByScore(Move* moves, int* scores, int moveCount);
