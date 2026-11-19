@@ -32,7 +32,7 @@ constexpr std::size_t KING_BUCKETS = 32;
 constexpr std::size_t PIECE_SLOTS = 11;
 constexpr std::size_t INPUT_SIZE = KING_BUCKETS * PIECE_SLOTS * 64; // 22528
 constexpr std::size_t HIDDEN_SIZE = 1024;
-constexpr int32_t SCALE = 400;
+constexpr int32_t SCALE = 180;
 constexpr int16_t QA = 255;
 constexpr int16_t QB = 64;
 
