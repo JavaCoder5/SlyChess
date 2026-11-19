@@ -68,8 +68,6 @@ void makeMove(Move m)
     }
 
     history[historyTop].move = m;
-    history[historyTop].prevAccumulator[0] = wAccumulator;
-    history[historyTop].prevAccumulator[1] = bAccumulator;
 
     history[historyTop].capturedPiece = 0;
 
@@ -624,59 +622,44 @@ void makeMove(Move m)
 
     boardHash ^= Zobrist::sideToMoveKey;
 
-    if (g_nnue_network && movingPiece >= 0) {
-        // HalfKAv2_hm features depend on the perspective's own king square (bucket and
-        // mirroring), so when a king moves, that side's accumulator is rebuilt from the
-        // updated bitboards. The other side's king hasn't moved, so its accumulator
-        // can be updated incrementally against its current king square.
-        const bool moverRefresh = movingPiece == 5;
-        const int wKingSquare = count_trailing_zeros(wKingBB);
-        const int bKingSquare = count_trailing_zeros(bKingBB);
-
-        auto updateFeature = [&](Accumulator& accumulator, bool perspective, bool pieceIsWhite, int piece, int square, bool add) {
-            std::size_t featureIndex = halfka_feature_index(perspective, pieceIsWhite, piece, square,
-                                                            perspective ? wKingSquare : bKingSquare);
-            if (add) accumulator.add_feature(featureIndex, *g_nnue_network);
-            else accumulator.remove_feature(featureIndex, *g_nnue_network);
+    // Record the move's piece changes on the NNUE accumulator stack. The accumulators
+    // themselves are only computed when the position is evaluated (see nnue.h).
+    // Always push, so unmakeMove's pop stays in step.
+    {
+        BoardDelta delta;
+        auto removed = [&](bool pieceIsWhite, int piece, int square) {
+            delta.removed[delta.numRemoved++] = { pieceIsWhite, static_cast<uint8_t>(piece), static_cast<uint8_t>(square) };
         };
-
-        auto updateBothPerspectives = [&](bool pieceIsWhite, int piece, int square, bool add) {
-            if (!(moverRefresh && whiteToMove)) updateFeature(wAccumulator, true, pieceIsWhite, piece, square, add);
-            if (!(moverRefresh && !whiteToMove)) updateFeature(bAccumulator, false, pieceIsWhite, piece, square, add);
+        auto added = [&](bool pieceIsWhite, int piece, int square) {
+            delta.added[delta.numAdded++] = { pieceIsWhite, static_cast<uint8_t>(piece), static_cast<uint8_t>(square) };
         };
+        if (movingPiece >= 0) {
+            delta.kingMoved[whiteToMove ? 0 : 1] = movingPiece == 5;
+            removed(whiteToMove, movingPiece, fromSq);
+            int destinationPiece = movingPiece;
+            if (history[historyTop].wasPromotion) {
+                if (flags == FLAG_PROMOTION_Q) destinationPiece = 4;
+                else if (flags == FLAG_PROMOTION_R) destinationPiece = 3;
+                else if (flags == FLAG_PROMOTION_B) destinationPiece = 2;
+                else if (flags == FLAG_PROMOTION_N) destinationPiece = 1;
+            }
+            added(whiteToMove, destinationPiece, toSq);
 
-        updateBothPerspectives(whiteToMove, movingPiece, fromSq, false);
-        int destinationPiece = movingPiece;
-        if (history[historyTop].wasPromotion) {
-            if (flags == FLAG_PROMOTION_Q) destinationPiece = 4;
-            else if (flags == FLAG_PROMOTION_R) destinationPiece = 3;
-            else if (flags == FLAG_PROMOTION_B) destinationPiece = 2;
-            else if (flags == FLAG_PROMOTION_N) destinationPiece = 1;
-        }
-        updateBothPerspectives(whiteToMove, destinationPiece, toSq, true);
+            char capturedPiece = history[historyTop].capturedPiece;
+            if (capturedPiece != 0) {
+                bool capturedWhite = capturedPiece >= 'A' && capturedPiece <= 'Z';
+                char pieceLetter = capturedWhite ? capturedPiece : static_cast<char>(capturedPiece - 'a' + 'A');
+                int capturedType = pieceLetter == 'P' ? 0 : pieceLetter == 'N' ? 1 : pieceLetter == 'B' ? 2 :
+                    pieceLetter == 'R' ? 3 : pieceLetter == 'Q' ? 4 : 5;
+                removed(capturedWhite, capturedType, history[historyTop].capturedSquare);
+            }
 
-        char capturedPiece = history[historyTop].capturedPiece;
-        if (capturedPiece != 0) {
-            bool capturedWhite = capturedPiece >= 'A' && capturedPiece <= 'Z';
-            char pieceLetter = capturedWhite ? capturedPiece : static_cast<char>(capturedPiece - 'a' + 'A');
-            int capturedType = pieceLetter == 'P' ? 0 : pieceLetter == 'N' ? 1 : pieceLetter == 'B' ? 2 :
-                pieceLetter == 'R' ? 3 : pieceLetter == 'Q' ? 4 : 5;
-            updateBothPerspectives(capturedWhite, capturedType, history[historyTop].capturedSquare, false);
+            if (history[historyTop].rookFrom >= 0) {
+                removed(whiteToMove, 3, history[historyTop].rookFrom);
+                added(whiteToMove, 3, history[historyTop].rookTo);
+            }
         }
-
-        if (history[historyTop].rookFrom >= 0) {
-            updateBothPerspectives(whiteToMove, 3, history[historyTop].rookFrom, false);
-            updateBothPerspectives(whiteToMove, 3, history[historyTop].rookTo, true);
-        }
-
-        if (moverRefresh) {
-            const uint64_t pieceBBs[2][6] = {
-                { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
-                { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
-            };
-            refresh_accumulator_from_bitboards(whiteToMove ? wAccumulator : bAccumulator,
-                                               *g_nnue_network, pieceBBs, whiteToMove);
-        }
+        nnue_push_move(delta, count_trailing_zeros(wKingBB), count_trailing_zeros(bKingBB));
     }
 
     if (movingPiece == 0)

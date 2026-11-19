@@ -65,7 +65,7 @@ std::size_t halfka_feature_index(bool perspective, bool pieceIsWhite, int pieceT
                                  int square, int kingSquare);
 
 // Rebuild `acc` for `perspective` (true: white) from piece_bbs[color][piece_type],
-// color 0 = white.
+// color 0 = white. Always starts from the bias (no refresh cache); used for checks.
 void refresh_accumulator_from_bitboards(
     Accumulator& acc,
     const Network& net,
@@ -73,10 +73,43 @@ void refresh_accumulator_from_bitboards(
     bool perspective
 );
 
-// Evaluation in centipawns from the side to move's point of view.
-inline int32_t evaluate_side_to_move(const Network& net, bool whiteToMove,
-                                     const Accumulator& white, const Accumulator& black) {
-    return whiteToMove ? net.evaluate(white, black) : net.evaluate(black, white);
-}
+// ---------------------------------------------------------------------------
+// Accumulator stack, one entry per makeMove.
+//
+// makeMove only records which features changed (nnue_push_move); the 1024-wide
+// accumulators are computed when a position is evaluated, in one fused pass per
+// perspective (copy + all adds/subs). Positions that are never evaluated (cutoffs
+// before the static eval, perft) don't pay for the update at all. unmakeMove just
+// pops. When a side's king moves, that perspective is rebuilt through a refresh
+// cache ("Finny table") keyed by king square, so only the pieces that differ from
+// the cached position are applied.
+// ---------------------------------------------------------------------------
+
+// One piece added to or removed from the board.
+struct PieceChange {
+    bool white;
+    uint8_t type;   // 0..5: P N B R Q K
+    uint8_t square; // a1 = 0
+};
+
+// Everything one move changes: at most 2 pieces removed and 2 added (castling).
+struct BoardDelta {
+    PieceChange removed[2];
+    PieceChange added[2];
+    uint8_t numRemoved = 0;
+    uint8_t numAdded = 0;
+    bool kingMoved[2] = { false, false }; // [0]: white king, [1]: black king
+};
+
+// Reset the stack to the current position (after setting a FEN).
+void nnue_reset(const uint64_t piece_bbs[2][6]);
+// Record a move. Call after the bitboards have been updated.
+void nnue_push_move(const BoardDelta& delta, int whiteKingSquare, int blackKingSquare);
+void nnue_pop();
+// Evaluation in centipawns from the side to move's point of view, for the
+// position on top of the stack (piece_bbs must be that position).
+int32_t nnue_evaluate(bool whiteToMove, const uint64_t piece_bbs[2][6]);
+// The current accumulators (computing them if needed), for debugging.
+const Accumulator& nnue_current_accumulator(bool perspective, const uint64_t piece_bbs[2][6]);
 
 bool load_nnue(const std::string& filepath);

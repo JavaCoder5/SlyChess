@@ -66,8 +66,8 @@ int quiescence(int alpha, int beta)
         return 0;
     }
 
-    // Evaluate the position using the accumulators maintained by makeMove.
-    int standPat = evaluate_side_to_move(*g_nnue_network, turn, wAccumulator, bAccumulator);
+    // Static eval (stand pat). In check it's only used at MAX_PLY, so skip it otherwise.
+    int standPat = (isInCheck && ply < MAX_PLY) ? 0 : nnueEvaluate();
 
     if (ply >= MAX_PLY)
     {

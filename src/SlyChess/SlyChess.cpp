@@ -111,7 +111,6 @@ TTEntry transposition_table[TT_SIZE];
 
 U64 boardHash;
 
-Accumulator wAccumulator, bAccumulator;
 
 int halfmoveClock = 0;
 
@@ -365,16 +364,11 @@ static void initReductionDepthsTable()
 
 }
 
-// Rebuild both NNUE accumulators from the current bitboards. The moves of a
-// "position ... moves" command are then applied incrementally by makeMove.
+// Reset the NNUE accumulator stack to the current bitboards. The moves of a
+// "position ... moves" command are then pushed onto it by makeMove.
 static void refreshAccumulators()
 {
-    const uint64_t pieceBBs[2][6] = {
-        { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
-        { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
-    };
-    refresh_accumulator_from_bitboards(wAccumulator, *g_nnue_network, pieceBBs, true);
-    refresh_accumulator_from_bitboards(bAccumulator, *g_nnue_network, pieceBBs, false);
+    nnueResetToBoard();
 }
 
 int main() {
@@ -960,9 +954,11 @@ int main() {
             };
             refresh_accumulator_from_bitboards(freshWhite, *g_nnue_network, pieceBBs, true);
             refresh_accumulator_from_bitboards(freshBlack, *g_nnue_network, pieceBBs, false);
-            int score = evaluate_side_to_move(*g_nnue_network, turn, freshWhite, freshBlack);
-            bool matches = std::memcmp(freshWhite.vals, wAccumulator.vals, sizeof(freshWhite.vals)) == 0
-                && std::memcmp(freshBlack.vals, bAccumulator.vals, sizeof(freshBlack.vals)) == 0;
+            int score = turn ? g_nnue_network->evaluate(freshWhite, freshBlack)
+                             : g_nnue_network->evaluate(freshBlack, freshWhite);
+            bool matches = score == nnueEvaluate()
+                && std::memcmp(freshWhite.vals, nnue_current_accumulator(true, pieceBBs).vals, sizeof(freshWhite.vals)) == 0
+                && std::memcmp(freshBlack.vals, nnue_current_accumulator(false, pieceBBs).vals, sizeof(freshBlack.vals)) == 0;
             std::cout << "NNUE evaluation: " << score << " cp (side to move)"
                       << (matches ? "" : " [incremental accumulators differ from a full refresh]")
                       << "\n" << std::flush;

@@ -77,3 +77,51 @@ int64_t nnue_avx2_screlu_dot(const int16_t* values, const int16_t* weights) {
 	for (int64_t lane : lanes) result += lane;
 	return result;
 }
+
+// SCReLU dot product with the standard bullet trick: v = clamp(x, 0, QA), then
+// madd(v * w, v) = v^2 * w summed in pairs. v * w fits in int16 because |w| <= 127,
+// and each int32 lane sums 2 * 64 terms (< 2^31) over the 1024 inputs.
+int64_t nnue_avx2_screlu_dot_fast(const int16_t* values, const int16_t* weights) {
+	const __m256i zero = _mm256_setzero_si256();
+	const __m256i maxActivation = _mm256_set1_epi16(QA);
+	__m256i sum = _mm256_setzero_si256();
+
+	for (std::size_t i = 0; i < HIDDEN_SIZE; i += 16) {
+		__m256i v = _mm256_load_si256(reinterpret_cast<const __m256i*>(values + i));
+		v = _mm256_min_epi16(_mm256_max_epi16(v, zero), maxActivation);
+		__m256i w = _mm256_load_si256(reinterpret_cast<const __m256i*>(weights + i));
+		sum = _mm256_add_epi32(sum, _mm256_madd_epi16(_mm256_mullo_epi16(v, w), v));
+	}
+
+	__m128i half = _mm_add_epi32(_mm256_castsi256_si128(sum), _mm256_extracti128_si256(sum, 1));
+	alignas(16) int32_t lanes[4];
+	_mm_store_si128(reinterpret_cast<__m128i*>(lanes), half);
+	return static_cast<int64_t>(lanes[0]) + lanes[1] + lanes[2] + lanes[3];
+}
+
+template <int NA, int NS>
+static void update_n(int16_t* out, const int16_t* in, const int16_t* const* adds, const int16_t* const* subs) {
+	for (std::size_t i = 0; i < HIDDEN_SIZE; i += 16) {
+		__m256i v = _mm256_load_si256(reinterpret_cast<const __m256i*>(in + i));
+		for (int a = 0; a < NA; ++a)
+			v = _mm256_add_epi16(v, _mm256_load_si256(reinterpret_cast<const __m256i*>(adds[a] + i)));
+		for (int s = 0; s < NS; ++s)
+			v = _mm256_sub_epi16(v, _mm256_load_si256(reinterpret_cast<const __m256i*>(subs[s] + i)));
+		_mm256_store_si256(reinterpret_cast<__m256i*>(out + i), v);
+	}
+}
+
+void nnue_avx2_update(int16_t* out, const int16_t* in, const int16_t* const* adds, int numAdds,
+                      const int16_t* const* subs, int numSubs) {
+	switch (numAdds * 3 + numSubs) {
+	case 0: update_n<0, 0>(out, in, adds, subs); break;
+	case 1: update_n<0, 1>(out, in, adds, subs); break;
+	case 2: update_n<0, 2>(out, in, adds, subs); break;
+	case 3: update_n<1, 0>(out, in, adds, subs); break;
+	case 4: update_n<1, 1>(out, in, adds, subs); break;
+	case 5: update_n<1, 2>(out, in, adds, subs); break;
+	case 6: update_n<2, 0>(out, in, adds, subs); break;
+	case 7: update_n<2, 1>(out, in, adds, subs); break;
+	case 8: update_n<2, 2>(out, in, adds, subs); break;
+	}
+}

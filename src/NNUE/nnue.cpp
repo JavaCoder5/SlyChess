@@ -38,6 +38,32 @@ namespace {
         }
     }
 
+    // out = in + adds[0..NA) - subs[0..NS), in one pass (out may equal in).
+    template <int NA, int NS>
+    void update_scalar_n(int16_t* out, const int16_t* in, const int16_t* const* adds, const int16_t* const* subs) {
+        for (std::size_t i = 0; i < HIDDEN_SIZE; ++i) {
+            int16_t v = in[i];
+            for (int a = 0; a < NA; ++a) v = static_cast<int16_t>(v + adds[a][i]);
+            for (int s = 0; s < NS; ++s) v = static_cast<int16_t>(v - subs[s][i]);
+            out[i] = v;
+        }
+    }
+
+    void update_scalar(int16_t* out, const int16_t* in, const int16_t* const* adds, int numAdds,
+                       const int16_t* const* subs, int numSubs) {
+        switch (numAdds * 3 + numSubs) {
+        case 0: if (out != in) std::memcpy(out, in, HIDDEN_SIZE * sizeof(int16_t)); break;
+        case 1: update_scalar_n<0, 1>(out, in, adds, subs); break;
+        case 2: update_scalar_n<0, 2>(out, in, adds, subs); break;
+        case 3: update_scalar_n<1, 0>(out, in, adds, subs); break;
+        case 4: update_scalar_n<1, 1>(out, in, adds, subs); break;
+        case 5: update_scalar_n<1, 2>(out, in, adds, subs); break;
+        case 6: update_scalar_n<2, 0>(out, in, adds, subs); break;
+        case 7: update_scalar_n<2, 1>(out, in, adds, subs); break;
+        case 8: update_scalar_n<2, 2>(out, in, adds, subs); break;
+        }
+    }
+
     int32_t screlu_scalar(int16_t value) {
         int32_t activation = value;
         if (activation < 0) activation = 0;
@@ -45,7 +71,7 @@ namespace {
         return activation * activation;
     }
 
-    // int64: with 1024 hidden neurons a full int32 sum of QA^2 * QB-scaled terms can overflow.
+    // Exact for any output weights: int64, since 1024 terms of QA^2 * w can overflow int32.
     int64_t screlu_dot_scalar(const int16_t* values, const int16_t* weights) {
         int64_t output = 0;
         for (std::size_t i = 0; i < HIDDEN_SIZE; ++i)
@@ -53,14 +79,40 @@ namespace {
         return output;
     }
 
+    // Fast path for |output weight| <= 127 (bullet clips QB-quantised weights to that):
+    // then v * w fits in int16 (255 * 127 = 32385), like _mm256_madd_epi16 in the AVX2
+    // version, and a block of 64 terms (< 64 * 255^2 * 127) fits in int32.
+    int64_t screlu_dot_scalar_fast(const int16_t* values, const int16_t* weights) {
+        int64_t output = 0;
+        for (std::size_t block = 0; block < HIDDEN_SIZE; block += 64) {
+            int32_t sum = 0;
+            for (std::size_t i = block; i < block + 64; ++i) {
+                int16_t v = values[i] < 0 ? 0 : (values[i] > QA ? QA : values[i]);
+                int16_t vw = static_cast<int16_t>(v * weights[i]);
+                sum += static_cast<int32_t>(vw) * v;
+            }
+            output += sum;
+        }
+        return output;
+    }
+
     using FeatureDeltaFn = void(*)(int16_t*, const int16_t*, bool);
+    using UpdateFn = void(*)(int16_t*, const int16_t*, const int16_t* const*, int, const int16_t* const*, int);
     using ScreluDotFn = int64_t(*)(const int16_t*, const int16_t*);
     FeatureDeltaFn featureDelta = apply_feature_delta_scalar;
+    UpdateFn updateAccumulator = update_scalar;
     ScreluDotFn screluDot = screlu_dot_scalar;
 
-#if defined(SLYCHESS_HAS_AVX2)
-    bool cpu_supports_avx2() {
-#if defined(_MSC_VER)
+    bool output_weights_fit_int8(const Network& net) {
+        for (int16_t w : net.output_weights)
+            if (w < -127 || w > 127) return false;
+        return true;
+    }
+
+    [[maybe_unused]] bool cpu_supports_avx2() {
+#if !defined(SLYCHESS_HAS_AVX2)
+        return false;
+#elif defined(_MSC_VER)
         int cpuInfo[4];
         __cpuid(cpuInfo, 1);
         constexpr int osxsave = 1 << 27;
@@ -74,13 +126,20 @@ namespace {
 #endif
     }
 
-    void configure_simd() {
+    void configure_kernels(const Network& net) {
+        const bool fastOutput = output_weights_fit_int8(net);
+#if defined(SLYCHESS_HAS_AVX2)
         if (cpu_supports_avx2()) {
             featureDelta = nnue_avx2_apply_feature_delta;
-            screluDot = nnue_avx2_screlu_dot;
+            updateAccumulator = nnue_avx2_update;
+            screluDot = fastOutput ? nnue_avx2_screlu_dot_fast : nnue_avx2_screlu_dot;
+            return;
         }
-    }
 #endif
+        featureDelta = apply_feature_delta_scalar;
+        updateAccumulator = update_scalar;
+        screluDot = fastOutput ? screlu_dot_scalar_fast : screlu_dot_scalar;
+    }
 }
 
 void Accumulator::init(const Network& net) {
@@ -147,6 +206,164 @@ int32_t Network::evaluate(const Accumulator& us, const Accumulator& them) const 
     return static_cast<int32_t>(output);
 }
 
+// ---------------------------------------------------------------------------
+// Accumulator stack and refresh cache
+// ---------------------------------------------------------------------------
+namespace {
+    constexpr int STACK_SIZE = 8192 + 1; // MAX_UNDO moves on top of the root position
+
+    struct StackEntry {
+        Accumulator acc[2];        // [0]: white perspective, [1]: black
+        bool computed[2];
+        bool needsRefresh[2];      // this perspective's king moved: no incremental update
+        uint8_t numAdds[2], numSubs[2];
+        uint32_t adds[2][2], subs[2][2];
+        int kingSquare[2];
+    };
+
+    StackEntry g_stack[STACK_SIZE];
+    int g_top = 0;
+
+    // Refresh cache: for each perspective and own-king square, the accumulator of the
+    // last position refreshed there and its pieces. A refresh only applies the
+    // difference. (King square fixes both the bucket and the mirroring, so every
+    // feature index is the same for all positions sharing an entry.)
+    struct CacheEntry {
+        Accumulator acc;
+        uint64_t bbs[2][6];
+    };
+    CacheEntry g_cache[2][64];
+
+    void reset_cache(const Network& net) {
+        for (auto& perspective : g_cache)
+            for (CacheEntry& e : perspective) {
+                e.acc.init(net);
+                std::memset(e.bbs, 0, sizeof(e.bbs));
+            }
+    }
+
+    // Apply lists of feature adds/subs to `acc` in place, up to 2 + 2 per pass.
+    void apply_lists(Accumulator& acc, const Network& net, const uint32_t* addIdx, int numAdds,
+                     const uint32_t* subIdx, int numSubs) {
+        int a = 0, s = 0;
+        while (a < numAdds || s < numSubs) {
+            const int16_t* adds[2];
+            const int16_t* subs[2];
+            int na = 0, ns = 0;
+            while (na < 2 && a < numAdds) adds[na++] = net.feature_weights[addIdx[a++]].vals;
+            while (ns < 2 && s < numSubs) subs[ns++] = net.feature_weights[subIdx[s++]].vals;
+            updateAccumulator(acc.vals, acc.vals, adds, na, subs, ns);
+        }
+    }
+
+    void refresh_cached(Accumulator& out, bool perspective, const uint64_t piece_bbs[2][6], int kingSquare) {
+        const Network& net = *g_nnue_network;
+        CacheEntry& e = g_cache[perspective ? 0 : 1][kingSquare];
+        uint32_t addIdx[32], subIdx[32];
+        int numAdds = 0, numSubs = 0;
+        for (int c = 0; c < 2; ++c) {
+            for (int p = 0; p < 6; ++p) {
+                uint64_t added = piece_bbs[c][p] & ~e.bbs[c][p];
+                uint64_t removed = e.bbs[c][p] & ~piece_bbs[c][p];
+                while (added) {
+                    int sq = count_trailing_zeros(added);
+                    added &= added - 1;
+                    addIdx[numAdds++] = static_cast<uint32_t>(halfka_feature_index(perspective, c == 0, p, sq, kingSquare));
+                }
+                while (removed) {
+                    int sq = count_trailing_zeros(removed);
+                    removed &= removed - 1;
+                    subIdx[numSubs++] = static_cast<uint32_t>(halfka_feature_index(perspective, c == 0, p, sq, kingSquare));
+                }
+                e.bbs[c][p] = piece_bbs[c][p];
+            }
+        }
+        apply_lists(e.acc, net, addIdx, numAdds, subIdx, numSubs);
+        std::memcpy(out.vals, e.acc.vals, sizeof(out.vals));
+    }
+
+    // Make the top entry's accumulator for `perspective` up to date.
+    void materialize(int perspective, const uint64_t piece_bbs[2][6]) {
+        StackEntry& top = g_stack[g_top];
+        if (top.computed[perspective]) return;
+
+        // Walk back to the last computed entry, unless a king move is in the way.
+        int i = g_top;
+        while (!g_stack[i].computed[perspective] && !g_stack[i].needsRefresh[perspective]) --i;
+        if (!g_stack[i].computed[perspective]) {
+            refresh_cached(top.acc[perspective], perspective == 0, piece_bbs, top.kingSquare[perspective]);
+            top.computed[perspective] = true;
+            return;
+        }
+
+        const Network& net = *g_nnue_network;
+        for (int j = i + 1; j <= g_top; ++j) {
+            StackEntry& e = g_stack[j];
+            const int16_t* adds[2];
+            const int16_t* subs[2];
+            for (int a = 0; a < e.numAdds[perspective]; ++a) adds[a] = net.feature_weights[e.adds[perspective][a]].vals;
+            for (int s = 0; s < e.numSubs[perspective]; ++s) subs[s] = net.feature_weights[e.subs[perspective][s]].vals;
+            updateAccumulator(e.acc[perspective].vals, g_stack[j - 1].acc[perspective].vals,
+                              adds, e.numAdds[perspective], subs, e.numSubs[perspective]);
+            e.computed[perspective] = true;
+        }
+    }
+}
+
+void nnue_reset(const uint64_t piece_bbs[2][6]) {
+    g_top = 0;
+    StackEntry& root = g_stack[0];
+    for (int perspective = 0; perspective < 2; ++perspective) {
+        root.kingSquare[perspective] = count_trailing_zeros(piece_bbs[perspective][5]);
+        root.needsRefresh[perspective] = false;
+        root.numAdds[perspective] = root.numSubs[perspective] = 0;
+        refresh_cached(root.acc[perspective], perspective == 0, piece_bbs, root.kingSquare[perspective]);
+        root.computed[perspective] = true;
+    }
+}
+
+void nnue_push_move(const BoardDelta& delta, int whiteKingSquare, int blackKingSquare) {
+    if (g_top + 1 >= STACK_SIZE) return; // can't happen within MAX_UNDO; keep the stack valid
+    StackEntry& e = g_stack[++g_top];
+    e.kingSquare[0] = whiteKingSquare;
+    e.kingSquare[1] = blackKingSquare;
+    for (int perspective = 0; perspective < 2; ++perspective) {
+        e.computed[perspective] = false;
+        e.needsRefresh[perspective] = delta.kingMoved[perspective];
+        e.numAdds[perspective] = e.numSubs[perspective] = 0;
+        if (delta.kingMoved[perspective]) continue;
+        const bool white = perspective == 0;
+        const int king = e.kingSquare[perspective];
+        for (int k = 0; k < delta.numAdded; ++k) {
+            const PieceChange& pc = delta.added[k];
+            e.adds[perspective][e.numAdds[perspective]++] =
+                static_cast<uint32_t>(halfka_feature_index(white, pc.white, pc.type, pc.square, king));
+        }
+        for (int k = 0; k < delta.numRemoved; ++k) {
+            const PieceChange& pc = delta.removed[k];
+            e.subs[perspective][e.numSubs[perspective]++] =
+                static_cast<uint32_t>(halfka_feature_index(white, pc.white, pc.type, pc.square, king));
+        }
+    }
+}
+
+void nnue_pop() {
+    if (g_top > 0) --g_top;
+}
+
+const Accumulator& nnue_current_accumulator(bool perspective, const uint64_t piece_bbs[2][6]) {
+    materialize(perspective ? 0 : 1, piece_bbs);
+    return g_stack[g_top].acc[perspective ? 0 : 1];
+}
+
+int32_t nnue_evaluate(bool whiteToMove, const uint64_t piece_bbs[2][6]) {
+    materialize(0, piece_bbs);
+    materialize(1, piece_bbs);
+    const StackEntry& top = g_stack[g_top];
+    return whiteToMove ? g_nnue_network->evaluate(top.acc[0], top.acc[1])
+                       : g_nnue_network->evaluate(top.acc[1], top.acc[0]);
+}
+
 bool load_nnue(const std::string& filepath) {
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     if (!file) {
@@ -168,9 +385,8 @@ bool load_nnue(const std::string& filepath) {
         std::cerr << "Error: Failed to read complete NNUE weights from " << filepath << "\n";
         return false;
     }
-#if defined(SLYCHESS_HAS_AVX2)
-    configure_simd();
-#endif
+    configure_kernels(*net);
+    reset_cache(*net);
     g_nnue_network = std::move(net);
     return true;
 }

@@ -38,7 +38,6 @@ struct UndoInfo {
     bool wasPromotion;
     bool wasCastle;
     int rookFrom, rookTo;
-    Accumulator prevAccumulator[2]; // 0: white, 1: black
     int prevHalfmoveClock;
 };
 
