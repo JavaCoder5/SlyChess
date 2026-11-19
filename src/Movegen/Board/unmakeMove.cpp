@@ -21,7 +21,7 @@
 void unmakeMove(Move m)
 {
     if (historyTop <= 0) return;
-    UndoInfo ui = history[--historyTop];
+    const UndoInfo& ui = history[--historyTop];
 
 	wAccumulator = ui.prevAccumulator[0];
 	bAccumulator = ui.prevAccumulator[1];

@@ -22,6 +22,7 @@
 #include <vector>
 #include <chrono>
 #include <bitset>
+#include <cstring>
 #include <src/Constants/Constants.h>
 #include <src/Constants/Macros.h>
 #include <src/Movegen/initKnightAttacks.h>
@@ -364,6 +365,18 @@ static void initReductionDepthsTable()
 
 }
 
+// Rebuild both NNUE accumulators from the current bitboards. The moves of a
+// "position ... moves" command are then applied incrementally by makeMove.
+static void refreshAccumulators()
+{
+    const uint64_t pieceBBs[2][6] = {
+        { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
+        { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
+    };
+    refresh_accumulator_from_bitboards(wAccumulator, *g_nnue_network, pieceBBs, true);
+    refresh_accumulator_from_bitboards(bAccumulator, *g_nnue_network, pieceBBs, false);
+}
+
 int main() {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);
@@ -421,6 +434,7 @@ int main() {
 
             resetRepetitionHistory();
             setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+            refreshAccumulators();
             pushRepetitionPosition(boardHash);
         }
         else if (line.rfind("position", 0) == 0) {
@@ -439,6 +453,7 @@ int main() {
             if (sub == "startpos") {
                 // set to standard start position
                 setPositionFromFEN("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+                refreshAccumulators();
 
                 pushRepetitionPosition(boardHash);
 
@@ -479,6 +494,7 @@ int main() {
                     if (!fenString.empty()) {
                         setPositionFromFEN(fenString);
                     }
+                    refreshAccumulators();
 
                     pushRepetitionPosition(boardHash);
 
@@ -495,15 +511,6 @@ int main() {
                 }
             }
 
-            // Refresh the NNUE accumulators after setting the position
-
-			const uint64_t pieceBBs[2][6] = {
-				{ wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
-				{ bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
-			};
-
-            refresh_accumulator_from_bitboards(wAccumulator, *g_nnue_network, pieceBBs);
-            refresh_accumulator_from_bitboards(bAccumulator, *g_nnue_network, pieceBBs, true, true);
         }
         else if (line.rfind("go", 0) == 0) {
             // Parse depth (only "go depth X" for now)
@@ -945,20 +952,20 @@ int main() {
         }
         else if (line == "nnue")
         {
-            Accumulator wAccumulator, bAccumulator;
-            const uint64_t stmPieceBBs[2][6] = {
+            // Full refresh, so this also checks the incrementally updated accumulators.
+            static Accumulator freshWhite, freshBlack;
+            const uint64_t pieceBBs[2][6] = {
                 { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
                 { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
             };
-			const uint64_t ntmPieceBBs[2][6] = {
-				{ bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB },
-				{ wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB }
-			};
-            refresh_accumulator_from_bitboards(wAccumulator, *g_nnue_network, turn ? stmPieceBBs : ntmPieceBBs);
-            refresh_accumulator_from_bitboards(bAccumulator, *g_nnue_network, turn ? ntmPieceBBs : stmPieceBBs, true);
-            //int score = g_nnue_network->evaluate(turn ? wAccumulator : bAccumulator, turn ? bAccumulator : wAccumulator);
-            int score = g_nnue_network->evaluate(wAccumulator, bAccumulator);
-            std::cout << "NNUE evaluation: " << score << " cp\n" << std::flush;
+            refresh_accumulator_from_bitboards(freshWhite, *g_nnue_network, pieceBBs, true);
+            refresh_accumulator_from_bitboards(freshBlack, *g_nnue_network, pieceBBs, false);
+            int score = evaluate_side_to_move(*g_nnue_network, turn, freshWhite, freshBlack);
+            bool matches = std::memcmp(freshWhite.vals, wAccumulator.vals, sizeof(freshWhite.vals)) == 0
+                && std::memcmp(freshBlack.vals, bAccumulator.vals, sizeof(freshBlack.vals)) == 0;
+            std::cout << "NNUE evaluation: " << score << " cp (side to move)"
+                      << (matches ? "" : " [incremental accumulators differ from a full refresh]")
+                      << "\n" << std::flush;
         }
         else if (line.rfind("setoption", 0) == 0)
         {

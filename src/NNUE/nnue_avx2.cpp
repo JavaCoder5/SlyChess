@@ -42,9 +42,10 @@ void nnue_avx2_apply_feature_delta(int16_t* accumulator, const int16_t* feature,
 	
 }
 
-int32_t nnue_avx2_screlu_dot(const int16_t* values, const int16_t* weights) {
+int64_t nnue_avx2_screlu_dot(const int16_t* values, const int16_t* weights) {
 	const __m256i zero = _mm256_setzero_si256();
 	const __m256i maxActivation = _mm256_set1_epi16(QA);
+	// 64-bit lanes: 1024 squared activations times output weights can overflow int32.
 	__m256i sum = _mm256_setzero_si256();
 
 	for (std::size_t i = 0; i < HIDDEN_SIZE; i += 16) {
@@ -64,13 +65,15 @@ int32_t nnue_avx2_screlu_dot(const int16_t* values, const int16_t* weights) {
 
 		__m256i squareLow = _mm256_mullo_epi32(activationLow32, activationLow32);
 		__m256i squareHigh = _mm256_mullo_epi32(activationHigh32, activationHigh32);
-		sum = _mm256_add_epi32(sum, _mm256_mullo_epi32(squareLow, weightLow32));
-		sum = _mm256_add_epi32(sum, _mm256_mullo_epi32(squareHigh, weightHigh32));
+		__m256i products = _mm256_add_epi32(_mm256_mullo_epi32(squareLow, weightLow32),
+			_mm256_mullo_epi32(squareHigh, weightHigh32));
+		sum = _mm256_add_epi64(sum, _mm256_cvtepi32_epi64(_mm256_castsi256_si128(products)));
+		sum = _mm256_add_epi64(sum, _mm256_cvtepi32_epi64(_mm256_extracti128_si256(products, 1)));
 	}
 
-	alignas(32) int32_t lanes[8];
+	alignas(32) int64_t lanes[4];
 	_mm256_store_si256(reinterpret_cast<__m256i*>(lanes), sum);
-	int32_t result = 0;
-	for (int32_t lane : lanes) result += lane;
+	int64_t result = 0;
+	for (int64_t lane : lanes) result += lane;
 	return result;
 }

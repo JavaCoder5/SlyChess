@@ -16,6 +16,7 @@
 */
 
 #include <src/Movegen/Board/makeMove.h>
+#include <src/Constants/Macros.h>
 
 // Apply a move to the global board state. This updates piece bitboards,
 // en-passant square, castling rights and flips the side-to-move (turn).
@@ -624,18 +625,24 @@ void makeMove(Move m)
     boardHash ^= Zobrist::sideToMoveKey;
 
     if (g_nnue_network && movingPiece >= 0) {
-        auto updateFeature = [&](Accumulator& accumulator, bool pieceIsWhite, int piece, int square, bool add, bool blackPerspective) {
-            int featureColor = pieceIsWhite ? 0 : 1;
-            if (blackPerspective) featureColor = 1 - featureColor;
-            int featureSquare = blackPerspective ? (square ^ 56) : square;
-            std::size_t featureIndex = featureColor * 384 + piece * 64 + featureSquare;
+        // HalfKAv2_hm features depend on the perspective's own king square (bucket and
+        // mirroring), so when a king moves, that side's accumulator is rebuilt from the
+        // updated bitboards. The other side's king hasn't moved, so its accumulator
+        // can be updated incrementally against its current king square.
+        const bool moverRefresh = movingPiece == 5;
+        const int wKingSquare = count_trailing_zeros(wKingBB);
+        const int bKingSquare = count_trailing_zeros(bKingBB);
+
+        auto updateFeature = [&](Accumulator& accumulator, bool perspective, bool pieceIsWhite, int piece, int square, bool add) {
+            std::size_t featureIndex = halfka_feature_index(perspective, pieceIsWhite, piece, square,
+                                                            perspective ? wKingSquare : bKingSquare);
             if (add) accumulator.add_feature(featureIndex, *g_nnue_network);
             else accumulator.remove_feature(featureIndex, *g_nnue_network);
         };
 
         auto updateBothPerspectives = [&](bool pieceIsWhite, int piece, int square, bool add) {
-            updateFeature(wAccumulator, pieceIsWhite, piece, square, add, false);
-            updateFeature(bAccumulator, pieceIsWhite, piece, square, add, true);
+            if (!(moverRefresh && whiteToMove)) updateFeature(wAccumulator, true, pieceIsWhite, piece, square, add);
+            if (!(moverRefresh && !whiteToMove)) updateFeature(bAccumulator, false, pieceIsWhite, piece, square, add);
         };
 
         updateBothPerspectives(whiteToMove, movingPiece, fromSq, false);
@@ -660,6 +667,15 @@ void makeMove(Move m)
         if (history[historyTop].rookFrom >= 0) {
             updateBothPerspectives(whiteToMove, 3, history[historyTop].rookFrom, false);
             updateBothPerspectives(whiteToMove, 3, history[historyTop].rookTo, true);
+        }
+
+        if (moverRefresh) {
+            const uint64_t pieceBBs[2][6] = {
+                { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
+                { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
+            };
+            refresh_accumulator_from_bitboards(whiteToMove ? wAccumulator : bAccumulator,
+                                               *g_nnue_network, pieceBBs, whiteToMove);
         }
     }
 

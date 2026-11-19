@@ -18,6 +18,7 @@
 #include "nnue.h"
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <cstring>
 #include <src/Constants/Macros.h>
 #if defined(SLYCHESS_HAS_AVX2)
@@ -44,15 +45,16 @@ namespace {
         return activation * activation;
     }
 
-    int32_t screlu_dot_scalar(const int16_t* values, const int16_t* weights) {
-        int32_t output = 0;
+    // int64: with 1024 hidden neurons a full int32 sum of QA^2 * QB-scaled terms can overflow.
+    int64_t screlu_dot_scalar(const int16_t* values, const int16_t* weights) {
+        int64_t output = 0;
         for (std::size_t i = 0; i < HIDDEN_SIZE; ++i)
-            output += screlu_scalar(values[i]) * static_cast<int32_t>(weights[i]);
+            output += static_cast<int64_t>(screlu_scalar(values[i])) * weights[i];
         return output;
     }
 
     using FeatureDeltaFn = void(*)(int16_t*, const int16_t*, bool);
-    using ScreluDotFn = int32_t(*)(const int16_t*, const int16_t*);
+    using ScreluDotFn = int64_t(*)(const int16_t*, const int16_t*);
     FeatureDeltaFn featureDelta = apply_feature_delta_scalar;
     ScreluDotFn screluDot = screlu_dot_scalar;
 
@@ -93,72 +95,74 @@ void Accumulator::remove_feature(std::size_t feature_idx, const Network& net) {
     featureDelta(vals, net.feature_weights[feature_idx].vals, true);
 }
 
-/**
- * Computes the 0..768 feature index for Bullet's Chess768 input format.
- * Layout typically: (color * 384) + (piece_type * 64) + square
- */
-inline static std::size_t get_chess768_index(int color, int piece_type, int square, bool flip_colors) {
-    int effective_color = flip_colors ? 1 - color : color;
-    return (effective_color * 384) + (piece_type * 64) + square;
+// Port of feature_index() in slychess-nnue-trainer/main.rs. There the board comes
+// from bullet's ChessBoard, which is already seen from the side to move (flipped
+// vertically for black, "our" pieces as color 0), and `opponent` flips it once
+// more for the other side. Here squares are absolute, so the flip is applied
+// directly for the black perspective; the result is the same index.
+std::size_t halfka_feature_index(bool perspective, bool pieceIsWhite, int pieceType,
+                                 int square, int kingSquare) {
+    const int orient = perspective ? 0 : 56;
+    const int king = kingSquare ^ orient;
+    const int kingFile = king % 8;
+    const int kingRank = king / 8;
+    const int mirror = kingFile < 4 ? 7 : 0;
+    const int orientedSquare = square ^ orient ^ mirror;
+    const int kingBucket = (7 - kingRank) * 4 + std::min(kingFile, 7 - kingFile);
+
+    const int pieceColor = pieceIsWhite == perspective ? 0 : 1; // 0: the perspective's own
+    const int pieceSlot = pieceType == 5 ? 10 : pieceType * 2 + pieceColor;
+
+    return static_cast<std::size_t>(kingBucket) * (PIECE_SLOTS * 64)
+         + static_cast<std::size_t>(pieceSlot) * 64 + orientedSquare;
 }
 
-/**
- * Performs a full accumulator refresh directly from bitboards.
- *
- * @param acc          The accumulator to populate.
- * @param net          The NNUE Network structure containing feature weights and bias.
- * @param piece_bbs    2D array of bitboards: piece_bbs[color][piece_type]
- * @param flip_board Optional: set to true if building for Black's perspective
- *                     (vertically mirroring squares via square ^ 56 if your network expects it).
- * 
- * @param flip_colors Optional: set to true if you want to swap the color of the pieces for the feature index.
- */
 void refresh_accumulator_from_bitboards(
     Accumulator& acc,
     const Network& net,
     const uint64_t piece_bbs[2][6],
-    bool flip_board,
-    bool flip_colors
+    bool perspective
 ) {
-    // 1. Initialize accumulator with the network feature bias
     acc.init(net);
+    const int kingSquare = count_trailing_zeros(piece_bbs[perspective ? 0 : 1][5]);
 
-    // 2. Loop through both colors and all 6 piece types
     for (int c = 0; c < 2; ++c) {
         for (int p = 0; p < 6; ++p) {
             uint64_t bb = piece_bbs[c][p];
-
             while (bb != 0) {
                 int square = count_trailing_zeros(bb);
-				bb &= bb - 1; // Clear the least significant bit
-
-                // If your network/dual-perspective requires a flipped perspective for the opponent:
-                int target_square = flip_board ? (square ^ 56) : square;
-
-                // Compute feature index and add to accumulator
-                std::size_t feature_idx = get_chess768_index(c, p, target_square, flip_colors);
-                acc.add_feature(feature_idx, net);
+                bb &= bb - 1;
+                acc.add_feature(halfka_feature_index(perspective, c == 0, p, square, kingSquare), net);
             }
         }
     }
 }
 
 int32_t Network::evaluate(const Accumulator& us, const Accumulator& them) const {
-    int32_t output = screluDot(us.vals, output_weights);
+    int64_t output = screluDot(us.vals, output_weights);
     output += screluDot(them.vals, output_weights + HIDDEN_SIZE);
     output = (output / QA) + output_bias;
     output *= SCALE;
     output /= (QA * QB);
-    return output;
+    return static_cast<int32_t>(output);
 }
 
 bool load_nnue(const std::string& filepath) {
-    auto net = std::make_unique<Network>();
-    std::ifstream file(filepath, std::ios::binary);
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
     if (!file) {
         std::cerr << "Error: Could not open NNUE file: " << filepath << "\n";
         return false;
     }
+    const auto fileSize = static_cast<std::size_t>(file.tellg());
+    // The trainer pads quantised.bin to a multiple of 64 bytes, as does sizeof(Network).
+    if (fileSize != sizeof(Network)) {
+        std::cerr << "Error: " << filepath << " is " << fileSize << " bytes, but a HalfKAv2_hm "
+                  << INPUT_SIZE << "->" << HIDDEN_SIZE << "x2->1 network is " << sizeof(Network)
+                  << " bytes. Use quantised.bin from slychess-nnue-trainer.\n";
+        return false;
+    }
+    file.seekg(0);
+    auto net = std::make_unique<Network>();
     file.read(reinterpret_cast<char*>(net.get()), sizeof(Network));
     if (!file) {
         std::cerr << "Error: Failed to read complete NNUE weights from " << filepath << "\n";

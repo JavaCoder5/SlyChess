@@ -198,7 +198,7 @@ int alphaBeta(int depth, int alpha, int beta)
 	bool canUseFutilityPruning = false;
 	if (depth == 1 && !isPvNode && !isInCheck)
 	{
-		staticEval = g_nnue_network->evaluate(wAccumulator, bAccumulator) * (turn ? 1 : -1);
+		staticEval = evaluate_side_to_move(*g_nnue_network, turn, wAccumulator, bAccumulator);
 		canUseFutilityPruning = true;
 	}
 
