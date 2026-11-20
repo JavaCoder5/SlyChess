@@ -16,6 +16,7 @@
 */
 
 #include "evaluate.h"
+#include <src/NNUE/nnue.h>
 
 inline constexpr int sideToMoveBonus = 20;
 
@@ -417,4 +418,22 @@ int evaluate()
 	int eval = whiteScore - blackScore;
 
 	return (turn ? eval : -eval);
+}
+
+int nnueEvaluate()
+{
+    const uint64_t pieceBBs[2][6] = {
+        { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
+        { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
+    };
+    return nnue_evaluate(turn, pieceBBs);
+}
+
+void nnueResetToBoard()
+{
+    const uint64_t pieceBBs[2][6] = {
+        { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
+        { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
+    };
+    nnue_reset(pieceBBs);
 }

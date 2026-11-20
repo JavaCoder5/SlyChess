@@ -20,3 +20,8 @@
 
 void nnue_avx2_apply_feature_delta(int16_t* accumulator, const int16_t* feature, bool subtract);
 int64_t nnue_avx2_screlu_dot(const int16_t* values, const int16_t* weights);
+// Requires |weights| <= 127 (checked when the network is loaded).
+int64_t nnue_avx2_screlu_dot_fast(const int16_t* values, const int16_t* weights);
+// out = in + adds[0..numAdds) - subs[0..numSubs), numAdds/numSubs <= 2; out may equal in.
+void nnue_avx2_update(int16_t* out, const int16_t* in, const int16_t* const* adds, int numAdds,
+                      const int16_t* const* subs, int numSubs);

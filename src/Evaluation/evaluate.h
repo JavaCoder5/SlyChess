@@ -33,3 +33,9 @@ extern bool wKingCastleKRights, wKingCastleQRights, bKingCastleKRights, bKingCas
 inline int invertPST(const int (*pst)[64], int index);
 
 int evaluate();
+
+// NNUE evaluation of the current position, in centipawns from the side to move.
+int nnueEvaluate();
+
+// Reset the NNUE accumulator stack to the current position (after setting a FEN).
+void nnueResetToBoard();

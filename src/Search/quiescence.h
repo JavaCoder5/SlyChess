@@ -31,7 +31,6 @@ extern int ply;
 
 extern bool hasNullMoved;
 
-extern Accumulator wAccumulator, bAccumulator;
 
 extern U64 qNodes;
 

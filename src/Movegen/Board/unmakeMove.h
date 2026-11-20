@@ -39,7 +39,6 @@ extern bool bKingCastleKRights, bKingCastleQRights;
 
 extern U64 boardHash;
 
-extern Accumulator wAccumulator, bAccumulator;
 
 extern int halfmoveClock;
 
