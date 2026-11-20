@@ -49,6 +49,13 @@ int staticExchangeEvaluation(const Move& m)
     const int flags = m & 0xF000;
     if (fromSq == toSq) return 0;
 
+    // Quiet moves (no capture, no promotion) are 0; skip building the exchange.
+    const bool promotes = flags == FLAG_PROMOTION_Q || flags == FLAG_PROMOTION_R ||
+        flags == FLAG_PROMOTION_B || flags == FLAG_PROMOTION_N;
+    const U64 enemies = turn ? (bPawnBB | bKnightBB | bBishopBB | bRookBB | bQueenBB | bKingBB)
+                             : (wPawnBB | wKnightBB | wBishopBB | wRookBB | wQueenBB | wKingBB);
+    if (!promotes && flags != FLAG_EN_PASSANT && !(enemies & (1ULL << toSq))) return 0;
+
     U64 pieces[2][6] = {
         { wPawnBB, wKnightBB, wBishopBB, wRookBB, wQueenBB, wKingBB },
         { bPawnBB, bKnightBB, bBishopBB, bRookBB, bQueenBB, bKingBB }
@@ -225,7 +232,7 @@ void sortLegalMoves(Move(*moves)[], bool sideToMove, int moveCount)
 	};
 
 	// Compute scores for each move (higher = better). Captures get positive scores, others zero.
-	int scores[256] = { 0 };
+	int scores[256];
 	for (int i = 0; i < moveCount && i < 256; ++i) {
 		Move m = (*moves)[i];
 		if (m == 0) { scores[i] = 0; continue; }
@@ -240,15 +247,47 @@ void sortLegalMoves(Move(*moves)[], bool sideToMove, int moveCount)
         scores[i] += staticExchangeEvaluation(m) * 1000;
 	}
 
-	// Simple selection sort by descending score to keep captures first
-	for (int i = 0; i < moveCount - 1; ++i) {
+	orderMovesByScore(*moves, scores, moveCount < 256 ? moveCount : 256);
+}
+
+// Sorts moves by descending score, giving exactly the same order as a selection sort
+// that swaps the first highest-scored remaining move into place at each step (the
+// order of equal scores, and so the search, depends on that). Most moves score 0, so
+// instead of O(n^2) comparisons this does:
+//   1. one selection-sort step per positive score (captures),
+//   2. the zero-score steps with a single forward scan: the first remaining 0 is
+//      swapped in, and the moves skipped over are all negative,
+//   3. a plain selection sort of the negative scores that are left (bad captures).
+void orderMovesByScore(Move* moves, int* scores, int moveCount)
+{
+	auto swapAt = [&](int a, int b) {
+		Move tmp = moves[a]; moves[a] = moves[b]; moves[b] = tmp;
+		int ts = scores[a]; scores[a] = scores[b]; scores[b] = ts;
+	};
+
+	int positives = 0;
+	for (int i = 0; i < moveCount; ++i) positives += scores[i] > 0;
+
+	int i = 0;
+	for (; i < positives; ++i) {
 		int best = i;
-		for (int j = i + 1; j < moveCount; ++j) {
+		for (int j = i + 1; j < moveCount; ++j)
 			if (scores[j] > scores[best]) best = j;
-		}
-		if (best != i) {
-			Move tmp = (*moves)[i]; (*moves)[i] = (*moves)[best]; (*moves)[best] = tmp;
-			int ts = scores[i]; scores[i] = scores[best]; scores[best] = ts;
-		}
+		if (best != i) swapAt(i, best);
+	}
+
+	for (int zero = i; i < moveCount - 1; ++i) {
+		if (zero < i) zero = i;
+		while (zero < moveCount && scores[zero] != 0) ++zero;
+		if (zero == moveCount) break;
+		if (zero != i) swapAt(i, zero);
+		++zero;
+	}
+
+	for (; i < moveCount - 1; ++i) {
+		int best = i;
+		for (int j = i + 1; j < moveCount; ++j)
+			if (scores[j] > scores[best]) best = j;
+		if (best != i) swapAt(i, best);
 	}
 }
