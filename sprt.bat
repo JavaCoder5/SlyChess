@@ -52,7 +52,7 @@ if not defined CURRENT_STATE (
 
 :: Check if there are uncommitted changes to stash
 set "STASHED=0"
-for /f "delims=" %%i in ('git status --porcelain') do (
+for /f "delims=" %%i in ('git status --porcelain -uno') do (
     set "STASHED=1"
     goto :check_stash_done
 )
