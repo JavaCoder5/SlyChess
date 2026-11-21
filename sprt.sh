@@ -3,14 +3,29 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Check if two commit hashes are provided as arguments
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <commit_hash_base> <commit_hash_new>"
+usage() {
+    echo "Usage: $0 [--cc <c_compiler>] [--cxx <cxx_compiler>] <commit_hash_base> <commit_hash_new>"
     exit 1
-fi
+}
 
-COMMIT_BASE="$1"
-COMMIT_NEW="$2"
+# Compilers passed to CMake, override with --cc/--cxx
+C_COMPILER="gcc"
+CXX_COMPILER="g++"
+
+# Parse the options and the two commit hashes
+COMMITS=()
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --cc)  [ "$#" -ge 2 ] || usage; C_COMPILER="$2"; shift 2 ;;
+        --cxx) [ "$#" -ge 2 ] || usage; CXX_COMPILER="$2"; shift 2 ;;
+        -*)    usage ;;
+        *)     COMMITS+=("$1"); shift ;;
+    esac
+done
+[ "${#COMMITS[@]}" -eq 2 ] || usage
+
+COMMIT_BASE="${COMMITS[0]}"
+COMMIT_NEW="${COMMITS[1]}"
 
 # --- CONFIGURATION ---
 BINARY_NAME="slychess"
@@ -41,7 +56,7 @@ git checkout "$COMMIT_BASE"
 
 echo "=== Configuring and compiling base engine..."
 mkdir -p "$BUILD_BASE_DIR"
-cmake -S . -B "$BUILD_BASE_DIR" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B "$BUILD_BASE_DIR" -DCMAKE_C_COMPILER="$C_COMPILER" -DCMAKE_CXX_COMPILER="$CXX_COMPILER" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$BUILD_BASE_DIR" --config Release -j "$(nproc)"
 
 # --- 2. BUILD NEW ENGINE ---
@@ -50,7 +65,7 @@ git checkout "$COMMIT_NEW"
 
 echo "=== Configuring and compiling new engine..."
 mkdir -p "$BUILD_NEW_DIR"
-cmake -S . -B "$BUILD_NEW_DIR" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B "$BUILD_NEW_DIR" -DCMAKE_C_COMPILER="$C_COMPILER" -DCMAKE_CXX_COMPILER="$CXX_COMPILER" -DCMAKE_BUILD_TYPE=Release
 cmake --build "$BUILD_NEW_DIR" --config Release -j "$(nproc)"
 
 # --- 3. RESTORE REPO STATE ---
