@@ -17,15 +17,46 @@
 
 #include "searchTime.h"
 #include <iostream>
+#include <mutex>
+#include <condition_variable>
+
+std::thread timerThread;
+
+static std::mutex timerMutex;
+static std::condition_variable timerCv;
+static bool timerCancelled = false;
+
+// Runs on the timer thread: waits for the given time, then tells the search to stop.
+// It only sets the stop flag; the search thread is joined by the UCI thread
+// (stopAndJoinSearch), so the two threads never join or reassign it at the same time.
+// Returns early without stopping anything if the timer is cancelled.
+static void waitThenStopSearch(int waitTime)
+{
+	std::unique_lock<std::mutex> lock(timerMutex);
+	if (!timerCv.wait_for(lock, std::chrono::milliseconds(waitTime), [] { return timerCancelled; }))
+		stopSearch = true;
+}
+
+void cancelSearchTimer()
+{
+	{
+		std::lock_guard<std::mutex> lock(timerMutex);
+		timerCancelled = true;
+	}
+	timerCv.notify_all();
+
+	if (timerThread.joinable())
+		timerThread.join();
+
+	std::lock_guard<std::mutex> lock(timerMutex);
+	timerCancelled = false;
+}
 
 void searchTime(int totalTime)
 {
 	int waitTime = std::max(totalTime - 50, 25);
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
-
-	stopAndJoinSearch();
-	return;
+	timerThread = std::thread(waitThenStopSearch, waitTime);
 }
 
 void searchTimeControl(int wTime, int bTime, int wInc, int bInc)
@@ -46,8 +77,5 @@ void searchTimeControl(int wTime, int bTime, int wInc, int bInc)
 	int moveOverhead = std::stoi(getUciOptionValue("Move Overhead"));
 	waitTime = std::max(waitTime - moveOverhead, 25); // Ensure a minimum wait time of 25ms to avoid a null move return.
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(waitTime));
-
-	stopAndJoinSearch();
-	return;
+	timerThread = std::thread(waitThenStopSearch, waitTime);
 }

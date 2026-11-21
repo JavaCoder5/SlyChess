@@ -16,21 +16,19 @@
 */
 
 #include "stopAndJoinSearch.h"
+#include <src/timeManagement/searchTime.h>
 
+// Only called from the UCI thread, which owns searchThread and timerThread.
 void stopAndJoinSearch()
 {
 	stopSearch = true;
 
-	while (searchRunning)
-	{
-		if (!searchRunning)
-			break;
-	}
-
 	if (searchThread.joinable())
 		searchThread.join();
 
-	searchThread = std::thread();
+	// The timer may still be waiting (search stopped early) or may have just fired;
+	// either way, join it before clearing the flag so it can't stop the next search.
+	cancelSearchTimer();
 
 	stopSearch = false;
 }

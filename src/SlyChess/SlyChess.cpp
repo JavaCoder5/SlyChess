@@ -105,7 +105,6 @@ std::atomic_bool searchRunning = false;
 std::atomic_bool stopSearch = false;
 
 std::thread searchThread;
-std::thread timerThread;
 
 TTEntry transposition_table[TT_SIZE];
 
@@ -579,14 +578,12 @@ int main() {
             else if (goMode == searchForTimeControl)
             {
                 searchThread = std::thread(search, INF);
-                timerThread = std::thread(searchTimeControl, whiteTime, blackTime, whiteIncrement, blackIncrement);
-                timerThread.detach();
+                searchTimeControl(whiteTime, blackTime, whiteIncrement, blackIncrement);
             }
             else if (goMode == searchForSetTime)
             {
                 searchThread = std::thread(search, INF);
-                timerThread = std::thread(searchTime, goTime);
-                timerThread.detach();
+                searchTime(goTime);
             }
 
         }
@@ -1046,6 +1043,7 @@ int main() {
             
         }
         else if (line == "quit") {
+                stopAndJoinSearch();
                 break;
         }
         else {

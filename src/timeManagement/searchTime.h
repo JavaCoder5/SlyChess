@@ -18,11 +18,17 @@
 #pragma once
 #include <thread>
 #include <chrono>
-#include <src/Search/stopAndJoinSearch.h>
+#include <atomic>
 #include <src/uci/uciOptions.h>
 
 extern bool turn;
 
+extern std::atomic_bool stopSearch;
+
+// Start the timer thread, which sets stopSearch when the time is up
 void searchTime(int totalTime);
 
 void searchTimeControl(int wTime, int bTime, int wInc, int bInc);
+
+// Wake the timer thread (if any) without stopping the search, and join it
+void cancelSearchTimer();
