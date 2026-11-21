@@ -3,24 +3,14 @@
 
 ## SPRT result (search/eval changes)
 <!-- Against current main. Delete this section if the change is non-functional. -->
-- Time control:
-- Elo bounds: [elo0, elo1]
-- Games (W / L / D):
-- LLR:
-- Elo: ± (error)
-
-## Bench / node count
-<!-- If relevant: node count before and after on the same positions/depth. -->
-- Before:
-- After:
+```
+Paste SPRT results here
+```
 
 ## Build
 Built and tested with:
 - [ ] MSVC (cl.exe)
 - [ ] g++
-
-## Testing
-<!-- How you checked this works (games played, positions tried, perft, etc.). -->
 
 ## AI use
 - [ ] No AI tools were used for this PR.
