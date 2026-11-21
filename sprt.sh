@@ -13,7 +13,7 @@ COMMIT_BASE="$1"
 COMMIT_NEW="$2"
 
 # --- CONFIGURATION ---
-BINARY_NAME="slychess"
+BINARY_NAME="SlyChess"
 BUILD_BASE_DIR="../sprt_slychess/build_base"
 BUILD_NEW_DIR="../sprt_slychess/build_new"
 
@@ -26,14 +26,28 @@ cleanup_on_error() {
     if [ -n "$CURRENT_STATE" ]; then
         git checkout "$CURRENT_STATE" >/dev/null 2>&1 || true
     fi
+    if [ "$STASHED" = "1" ]; then
+        git stash pop >/dev/null 2>&1 || true
+    fi
     exit 1
 }
 
 # Trap errors to run cleanup
 trap cleanup_on_error ERR
 
-echo "=== Stashing any uncommitted local changes..."
-git stash
+# Only stash if there are uncommitted changes to tracked files, otherwise the
+# "git stash pop" below would pop an older, unrelated stash
+STASHED="0"
+if [ -n "$(git status --porcelain -uno)" ]; then
+    echo "=== Stashing any uncommitted local changes..."
+    git stash
+    STASHED="1"
+else
+    echo "=== No local changes to stash."
+fi
+
+# nproc doesn't exist on macOS
+JOBS=$(getconf _NPROCESSORS_ONLN)
 
 # --- 1. BUILD BASE ENGINE ---
 echo "=== Checking out base commit: $COMMIT_BASE"
@@ -42,7 +56,7 @@ git checkout "$COMMIT_BASE"
 echo "=== Configuring and compiling base engine..."
 mkdir -p "$BUILD_BASE_DIR"
 cmake -S . -B "$BUILD_BASE_DIR" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
-cmake --build "$BUILD_BASE_DIR" --config Release -j "$(nproc)"
+cmake --build "$BUILD_BASE_DIR" --config Release -j "$JOBS"
 
 # --- 2. BUILD NEW ENGINE ---
 echo "=== Checking out new commit: $COMMIT_NEW"
@@ -51,12 +65,15 @@ git checkout "$COMMIT_NEW"
 echo "=== Configuring and compiling new engine..."
 mkdir -p "$BUILD_NEW_DIR"
 cmake -S . -B "$BUILD_NEW_DIR" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
-cmake --build "$BUILD_NEW_DIR" --config Release -j "$(nproc)"
+cmake --build "$BUILD_NEW_DIR" --config Release -j "$JOBS"
 
 # --- 3. RESTORE REPO STATE ---
 echo "=== Restoring original git state ($CURRENT_STATE)..."
 git checkout "$CURRENT_STATE"
-git stash pop >/dev/null 2>&1 || echo "Note: No stash to pop or conflict handled."
+if [ "$STASHED" = "1" ]; then
+    echo "=== Restoring stashed changes..."
+    git stash pop >/dev/null 2>&1 || echo "Note: Conflict encountered while popping stash."
+fi
 
 # Remove error trap for normal completion
 trap - ERR
