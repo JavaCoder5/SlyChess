@@ -1,7 +1,7 @@
 # SlyChess
 SlyChess is a UCI chess engine coded in C++.
 
-# Contributing
+## Contributing
 Issues and PRs are welcome! I'll try my best to go through them.
 
 > [!IMPORTANT]
@@ -19,7 +19,7 @@ SlyChess is a command-line engine and does not include a built-in graphical inte
 * **Online via Lichess:** Challenge the bot directly on its [Lichess page][lichess-link] *(note: the bot is not always online)*.
 * **Locally via a Chess GUI:** Download the engine and load it into any UCI-compatible interface, such as [En Croissant][en-croissant-link].
 
-# License
+## License
 SlyChess is licensed under the GNU General Public License v3.0 (GPL v3).
 See the [LICENSE.md][license-link] file for more details.
 
