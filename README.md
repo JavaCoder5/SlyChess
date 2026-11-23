@@ -12,9 +12,17 @@ Tested and verified working compilers:
 - MSVC (cl.exe)
 - g++
 
+## Playing Against SlyChess
+
+SlyChess is a command-line engine and does not include a built-in graphical interface. You can play against it in two ways:
+
+* **Online via Lichess:** Challenge the bot directly on its [Lichess page][lichess-link] *(note: the bot is not always online)*.
+* **Locally via a Chess GUI:** Download the engine and load it into any UCI-compatible interface, such as [En Croissant][en-croissant-link].
+
 # License
 SlyChess is licensed under the GNU General Public License v3.0 (GPL v3).
 See the [LICENSE.md][license-link] file for more details.
 
-
+[lichess-link]: https://lichess.org/@/slychessbot
 [license-link]: https://github.com/JavaCoder5/SlyChess/blob/main/LICENSE.md
+[en-croissant-link]: https://encroissant.org/
