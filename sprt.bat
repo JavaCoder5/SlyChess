@@ -85,7 +85,7 @@ fastchess ^
     -pgnout file="../sprt_slychess/sprt_%SHA_NEW%_vs_%SHA_BASE%.pgn" ^
     -openings file="..\sprt_slychess\books\8moves_v3.pgn" format=pgn order=random ^
     -each tc=5.0+0.1 -repeat -concurrency 6 -recover ^
-    -sprt elo0=0 elo1=10 alpha=0.05 beta=0.05 -rounds 10000 ^
+    -sprt elo0=0 elo1=5 alpha=0.05 beta=0.05 -rounds 50000 ^
     -autosaveinterval 0
 
 echo === SPRT test completed! Results saved to sprt_%SHA_NEW%_vs_%SHA_BASE%.pgn
