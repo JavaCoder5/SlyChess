@@ -1,13 +1,42 @@
 @echo off
 setlocal
 
-:: Check if two commit hashes are provided as arguments
-if "%~2"=="" goto :usage
+:: Compilers passed to CMake, override with --cc/--cxx
+set "C_COMPILER=cl"
+set "CXX_COMPILER=cl"
+
+:: Parse the options and the two commit hashes
+set "COMMIT_BASE="
+set "COMMIT_NEW="
+:parse_args
+if "%~1"=="" goto :parse_args_done
+if "%~1"=="--cc" (
+    if "%~2"=="" goto :usage
+    set "C_COMPILER=%~2"
+    shift
+    shift
+    goto :parse_args
+)
+if "%~1"=="--cxx" (
+    if "%~2"=="" goto :usage
+    set "CXX_COMPILER=%~2"
+    shift
+    shift
+    goto :parse_args
+)
+if not defined COMMIT_BASE (
+    set "COMMIT_BASE=%~1"
+) else if not defined COMMIT_NEW (
+    set "COMMIT_NEW=%~1"
+) else (
+    goto :usage
+)
+shift
+goto :parse_args
+:parse_args_done
+if not defined COMMIT_NEW goto :usage
 
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
-
-set "COMMIT_BASE=%~1"
-set "COMMIT_NEW=%~2"
 
 :: --- CONFIGURATION ---
 set "BINARY_NAME=slychess.exe"
@@ -43,7 +72,7 @@ if errorlevel 1 goto :error
 
 echo === Configuring and compiling base engine...
 if not exist "%BUILD_BASE_DIR%" mkdir "%BUILD_BASE_DIR%"
-cmake -S . -B "%BUILD_BASE_DIR%" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B "%BUILD_BASE_DIR%" -DCMAKE_C_COMPILER="%C_COMPILER%" -DCMAKE_CXX_COMPILER="%CXX_COMPILER%" -DCMAKE_BUILD_TYPE=Release
 if errorlevel 1 goto :error
 cmake --build "%BUILD_BASE_DIR%" --config Release -j %NUMBER_OF_PROCESSORS%
 if errorlevel 1 goto :error
@@ -55,7 +84,7 @@ if errorlevel 1 goto :error
 
 echo === Configuring and compiling new engine...
 if not exist "%BUILD_NEW_DIR%" mkdir "%BUILD_NEW_DIR%"
-cmake -S . -B "%BUILD_NEW_DIR%" -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B "%BUILD_NEW_DIR%" -DCMAKE_C_COMPILER="%C_COMPILER%" -DCMAKE_CXX_COMPILER="%CXX_COMPILER%" -DCMAKE_BUILD_TYPE=Release
 if errorlevel 1 goto :error
 cmake --build "%BUILD_NEW_DIR%" --config Release -j %NUMBER_OF_PROCESSORS%
 if errorlevel 1 goto :error
@@ -87,7 +116,7 @@ endlocal
 exit /b 0
 
 :usage
-echo Usage: %~nx0 ^<commit_hash_base^> ^<commit_hash_new^>
+echo Usage: %~nx0 [--cc ^<c_compiler^>] [--cxx ^<cxx_compiler^>] ^<commit_hash_base^> ^<commit_hash_new^>
 endlocal
 exit /b 1
 
